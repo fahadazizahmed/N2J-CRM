@@ -1,0 +1,47 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "NODE_ENV=production.env node --inspect=5858 -r ts-node/register ./src/index.ts",
+    "dev": "NODE_ENV=develop.env node --inspect=5858 -r ts-node/register ./src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^22.13.10",
+    "@types/validator": "^13.12.2",
+    "nodemon": "^3.1.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "@types/compression": "^1.7.5",
+    "@types/cors": "^2.8.17",
+    "@types/hpp": "^0.2.6",
+    "@typescript-eslint/eslint-plugin": "^8.26.0",
+    "@typescript-eslint/parser": "^8.26.0",
+    "body-parser": "^1.20.3",
+    "compression": "^1.8.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "eslint-config-prettier": "^10.1.1",
+    "eslint-plugin-prettier": "^5.2.3",
+    "express": "^4.21.2",
+    "express-async-errors": "^3.1.1",
+    "express-validator": "^7.2.1",
+    "helmet": "^8.0.0",
+    "hpp": "^0.2.3",
+    "mongoose": "^8.12.1",
+    "multer": "^1.4.5-lts.1",
+    "prettier": "^3.5.3",
+    "typedi": "^0.10.0",
+    "validator": "^13.12.0",
+    "xss-clean": "^0.1.4"
+  }
+}
