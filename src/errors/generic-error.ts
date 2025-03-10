@@ -1,11 +1,11 @@
-import { CustomError } from "./custom-error";
+import { CustomError } from './custom-error';
 
 export class GenericError extends CustomError {
   statusCode = 500;
-  message = "Internal Server Error";
+  message = 'Internal Server Error';
 
   constructor(e?: Error | CustomError, errorSource?: string) {
-    super("Internal Server Error");
+    super('Internal Server Error');
 
     if (e instanceof CustomError) {
       this.message = e.message;

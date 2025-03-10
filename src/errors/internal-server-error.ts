@@ -1,5 +1,5 @@
-import { ValidationError } from "express-validator";
-import { CustomError } from "./custom-error";
+import { ValidationError } from 'express-validator';
+import { CustomError } from './custom-error';
 
 export class InternalServerError extends CustomError {
   statusCode = 500;
@@ -14,4 +14,3 @@ export class InternalServerError extends CustomError {
     return [{ message: this.message }];
   }
 }
-

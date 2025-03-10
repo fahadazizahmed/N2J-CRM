@@ -1,4 +1,4 @@
-import { Response } from "express";
+import { Response } from 'express';
 
 // Define allowed status codes for clarity
 export type IStatusCode = 200 | 201 | 400 | 404 | 422;
@@ -11,14 +11,14 @@ export type IStatusCode = 200 | 201 | 400 | 404 | 422;
  * @param data Optional additional data
  */
 export const sendErrorResponse = (
-  res: Response, 
-  message: string, 
-  statusCode: IStatusCode, 
+  res: Response,
+  message: string,
+  statusCode: IStatusCode,
   data: any = null
 ): void => {
   const responseObject: Record<string, any> = {
     success: false,
-    errors: [{ message }]
+    errors: [{ message }],
   };
 
   if (data) {
@@ -36,15 +36,15 @@ export const sendErrorResponse = (
  * @param data Optional additional data
  */
 export const sendSuccessResponse = (
-  res: Response, 
-  message: string, 
-  statusCode: IStatusCode = 200, 
+  res: Response,
+  message: string,
+  statusCode: IStatusCode = 200,
   data: any = null
 ): void => {
   const responseObject: Record<string, any> = {
     success: true,
     message,
-    ...(data && { data })  // Adds `data` only if it exists
+    ...(data && { data }), // Adds `data` only if it exists
   };
 
   res.status(statusCode).json(responseObject);
