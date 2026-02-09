@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { NotAuthorizedError } from '../errors/not-authorized-error';
+import { verifyToken } from '../utils/jwt.util';
 
 /**
- * Mock Authentication Middleware
- * For now, this is a mock that simulates an authenticated admin user
- * TODO: Replace with real JWT authentication
+ * JWT Authentication Middleware
+ * Verifies JWT token and attaches user info to request
  */
 
 // Extend Express Request type to include user
@@ -15,30 +15,40 @@ declare global {
                 id: string;
                 email: string;
                 role: string;
-                fullName: string;
             };
         }
     }
 }
 
 /**
- * Mock middleware to simulate authenticated admin user
- * TODO: Replace with real JWT verification
+ * Middleware to verify JWT token from Authorization header
+ * Extracts user information and attaches to request
  */
 export const authenticateUser = (req: Request, res: Response, next: NextFunction): void => {
     try {
-        // Mock authenticated admin user
-        // TODO: add DB queries here to verify token and get real user
+        // Extract token from Authorization header
+        const authHeader = req.headers.authorization;
+
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            throw new NotAuthorizedError('No token provided. Please login first.');
+        }
+
+        // Get token (remove 'Bearer ' prefix)
+        const token = authHeader.substring(7);
+
+        // Verify token
+        const decoded = verifyToken(token);
+
+        // Attach user info to request
         req.user = {
-            id: 'mock-admin-id-123',
-            email: 'admin@n2jcrm.com',
-            fullName: 'Mock Admin',
-            role: 'ADMIN',
+            id: decoded.userId.toString(),
+            email: decoded.email,
+            role: decoded.role,
         };
 
-        console.log('🔐 Mock Authentication: User authenticated as ADMIN');
+        console.log(`🔐 Authentication: User ${decoded.email} authenticated as ${decoded.role}`);
         next();
-    } catch (error) {
-        next(new NotAuthorizedError('Authentication failed'));
+    } catch (error: any) {
+        next(new NotAuthorizedError(error.message || 'Authentication failed'));
     }
 };

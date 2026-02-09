@@ -1,9 +1,9 @@
 import expressLoader from './express';
 import { Application } from 'express';
-import { connectToMongo } from '../connection/mongoose';
 
 export default async ({ expressApp }: { expressApp: Application }) => {
-  connectToMongo();
+  // Prisma client is initialized when imported
+  // No need for explicit connection call
   expressLoader({ app: expressApp });
   // Logger.info("✌️ Express loaded");
 };

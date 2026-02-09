@@ -18,8 +18,7 @@ export const createUserValidationRules = () => {
             .isEmail()
             .withMessage('Please provide a valid email address')
             .bail()
-            .normalizeEmail()
-            .toLowerCase(),
+            .normalizeEmail({ all_lowercase: true }),
 
         // Password validation
         body('password')

@@ -14,7 +14,7 @@ const ErrorMessages = {
   //Module Error
 
   AUTH: {
-    INVALID_ROLE: 'Invalid role can be USER | SUPER_ADMIN | ADMIN',
+    INVALID_ROLE: 'Invalid role. Must be one of: ADMIN | MANAGER | DRIVER | CLIENT | SUBCONTRACTOR',
     USERNAME_LENGTH_MAX: (min: number, max: number) =>
       `username must be greater than ${min} character and less than ${max + 1} characters.`,
     NAME_LENGTH_MAX: (min: number, max: number) =>
