@@ -3,38 +3,15 @@ import { UnProcessableEntityError } from '../../errors/unprocessable-entity.erro
 import { NotAuthorizedError } from '../../errors/not-authorized-error';
 import { BadRequestError } from '../../errors/bad-request-error';
 import { IUserCreateDTO, ILoginDTO, ILoginResponseDTO } from './auth.dto';
-import User from './user.model';
 import prisma from '../../utils/prisma.util';
 import { comparePassword } from '../../utils/hash.util';
 import { generateToken } from '../../utils/jwt.util';
 
 export interface IAuthService {
-	signUpWithEmail: (userCreateDTO: IUserCreateDTO) => Promise<IUserCreateDTO>;
 	login: (loginDTO: ILoginDTO) => Promise<ILoginResponseDTO>;
 }
 
 export default class AuthService implements IAuthService {
-	/* email singup service */
-	public async signUpWithEmail(userCreateDTO: IUserCreateDTO): Promise<any> {
-		try {
-			// to throw an any error
-			if (userCreateDTO.password.length < 6)
-				throw new UnProcessableEntityError(InfoMessages.AUTH.PASSWORD_LENGTH_ERROR);
-
-			const userCreation: any = {
-				password: userCreateDTO.password,
-				fullName: userCreateDTO.fullName,
-				username: userCreateDTO.username,
-				role: userCreateDTO.role,
-			};
-
-			await User.create(userCreation);
-			return userCreateDTO;
-		} catch (e) {
-			throw e;
-		}
-	}
-
 	/**
 	 * User Login Service
 	 * Authenticates user (any role) and generates JWT token
