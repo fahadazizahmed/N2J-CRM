@@ -15,4 +15,10 @@ router.post(
   authController.login
 );
 
+/* User Logout Route */
+router.post(
+  routes.LOGOUT,
+  authController.logout
+);
+
 export { router as authRouter };

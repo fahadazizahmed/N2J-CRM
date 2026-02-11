@@ -2,13 +2,14 @@ import InfoMessages from '../../constant/messages';
 import { UnProcessableEntityError } from '../../errors/unprocessable-entity.error';
 import { NotAuthorizedError } from '../../errors/not-authorized-error';
 import { BadRequestError } from '../../errors/bad-request-error';
-import { IUserCreateDTO, ILoginDTO, ILoginResponseDTO } from './auth.dto';
+import { ILoginDTO, ILoginResponseDTO } from './auth.dto';
 import prisma from '../../utils/prisma.util';
 import { comparePassword } from '../../utils/hash.util';
 import { generateToken } from '../../utils/jwt.util';
 
 export interface IAuthService {
 	login: (loginDTO: ILoginDTO) => Promise<ILoginResponseDTO>;
+	logout: (token: string) => Promise<void>;
 }
 
 export default class AuthService implements IAuthService {
@@ -55,7 +56,17 @@ export default class AuthService implements IAuthService {
 			// Step 4: Generate JWT token
 			const token = generateToken(user.id, user.email, user.role);
 
-			// Step 5: Return token and user info (excluding password)
+			// Step 5: Create session record in database
+			await prisma.userSession.create({
+				data: {
+					userId: user.id,
+					sessionToken: token,
+					ipAddress: null, // Can be added via req.ip if needed
+					status: 1, // Active
+				},
+			});
+
+			// Step 6: Return token and user info (excluding password)
 			return {
 				token,
 				user: {
@@ -65,6 +76,39 @@ export default class AuthService implements IAuthService {
 					createdAt: user.createdAt,
 				},
 			};
+		} catch (e) {
+			throw e;
+		}
+	}
+
+	/**
+	 * User Logout Service
+	 * Updates session status to inactive (0) and records logout time
+	 */
+	public async logout(token: string): Promise<void> {
+		try {
+			// Find session by token
+			const session = await prisma.userSession.findUnique({
+				where: { sessionToken: token },
+			});
+
+			if (!session) {
+				throw new NotAuthorizedError('Invalid session token');
+			}
+
+			// Check if already logged out
+			if (session.status === 0) {
+				throw new BadRequestError('Session already logged out');
+			}
+
+			// Update session: mark as inactive and record logout time
+			await prisma.userSession.update({
+				where: { sessionToken: token },
+				data: {
+					status: 0, // Inactive
+					logoutAt: new Date(),
+				},
+			});
 		} catch (e) {
 			throw e;
 		}
