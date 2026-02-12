@@ -52,20 +52,84 @@ export default class UserService implements IUserService {
             console.log('\n📝 Step 3: Hashing password...');
             const hashedPassword = await hashPassword(data.password);
             console.log('   ✅ Password hashed successfully');
-            console.log('   Original:', data.password);
-            console.log('   Hashed:', hashedPassword);
 
-            // Step 3: Create user in database using Prisma
-            console.log('\n📝 Step 4: Creating user in database...');
-            const newUser = await prisma.user.create({
-                data: {
-                    email: data.email,
-                    password: hashedPassword,
-                    role: data.role,
-                },
+            // Step 3: Create user and role-specific record in a transaction
+            console.log('\n📝 Step 4: Creating user and role-specific record in transaction...');
+            console.log(`   Target Role: ${data.role}`);
+
+            const result = await prisma.$transaction(async (tx) => {
+                // Create user first
+                console.log('   → Creating user in users table...');
+                const newUser = await tx.user.create({
+                    data: {
+                        email: data.email,
+                        password: hashedPassword,
+                        role: data.role,
+                    },
+                });
+                console.log(`   ✅ User created with ID: ${newUser.id}`);
+
+                // Create role-specific record based on role
+                if (data.role === 'DRIVER') {
+                    if (!data.driverData) {
+                        throw new BadRequestError('Driver data is required for DRIVER role');
+                    }
+                    console.log('   → Creating driver record...');
+                    await tx.driver.create({
+                        data: {
+                            userId: newUser.id,
+                            firstName: data.driverData.firstName,
+                            lastName: data.driverData.lastName,
+                            licenseNumber: data.driverData.licenseNumber,
+                            insuranceDetails: data.driverData.insuranceDetails,
+                            whiteCard: data.driverData.whiteCard,
+                            type: data.driverData.type || 'IN_HOUSE',
+                            status: data.driverData.status || 'ACTIVE',
+                        },
+                    });
+                    console.log('   ✅ Driver record created successfully');
+                }
+
+                if (data.role === 'CLIENT') {
+                    if (!data.clientData) {
+                        throw new BadRequestError('Client data is required for CLIENT role');
+                    }
+                    console.log('   → Creating client record...');
+                    await tx.client.create({
+                        data: {
+                            userId: newUser.id,
+                            companyName: data.clientData.companyName,
+                            contactName: data.clientData.contactName,
+                            email: data.clientData.email,
+                            phone: data.clientData.phone,
+                            address: data.clientData.address,
+                        },
+                    });
+                    console.log('   ✅ Client record created successfully');
+                }
+
+                if (data.role === 'SUBCONTRACTOR') {
+                    if (!data.subcontractorData) {
+                        throw new BadRequestError('Subcontractor data is required for SUBCONTRACTOR role');
+                    }
+                    console.log('   → Creating subcontractor record...');
+                    await tx.subcontractor.create({
+                        data: {
+                            userId: newUser.id,
+                            companyName: data.subcontractorData.companyName,
+                            contactName: data.subcontractorData.contactName,
+                            email: data.subcontractorData.email,
+                            phone: data.subcontractorData.phone,
+                            address: data.subcontractorData.address,
+                        },
+                    });
+                    console.log('   ✅ Subcontractor record created successfully');
+                }
+
+                return newUser;
             });
-            console.log('   ✅ User created successfully');
-            console.log('   User ID:', newUser.id);
+
+            console.log('   ✅ Transaction completed successfully');
 
             // Step 4: Send credentials email (non-blocking)
             console.log('\n📝 Step 5: Sending credentials email...');
@@ -75,10 +139,10 @@ export default class UserService implements IUserService {
 
             // Step 5: Prepare response (without password)
             const userResponse: IUserResponse = {
-                id: newUser.id.toString(),
-                email: newUser.email,
-                role: newUser.role,
-                createdAt: newUser.createdAt,
+                id: result.id.toString(),
+                email: result.email,
+                role: result.role,
+                createdAt: result.createdAt,
             };
 
             console.log('\n✅ USER CREATION COMPLETED SUCCESSFULLY');

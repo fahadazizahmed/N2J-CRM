@@ -22,11 +22,14 @@ export default class UserController {
             // Get the admin user ID from authenticated request
             const performedBy = req.user?.id || 'system';
 
-            // Extract validated data from request body
+            // Extract validated data from request body (including role-specific data)
             const userData: ICreateUserDTO = {
                 email: req.body.email,
                 password: req.body.password,
                 role: req.body.role,
+                driverData: req.body.driverData,
+                clientData: req.body.clientData,
+                subcontractorData: req.body.subcontractorData,
             };
 
             // Call service to create user
