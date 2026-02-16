@@ -16,8 +16,7 @@ export const errorHandler: ErrorRequestHandler = (
     res.status(400).send({ errors: [{ message: err.message }] });
     return;
   }
-  console.error('💥 Application Error:', err);
   res.status(500).send({
-    errors: [{ message: 'Something went wrong', details: process.env.NODE_ENV === 'development' ? err.message : undefined }],
+    errors: [{ message: 'Something went wrong' }],
   });
 };

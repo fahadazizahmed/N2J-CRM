@@ -1,9 +1,9 @@
 import expressLoader from './express';
 import { Application } from 'express';
+import { connectToDB } from '../connection/db';
 
 export default async ({ expressApp }: { expressApp: Application }) => {
-  // Prisma client is initialized when imported
-  // No need for explicit connection call
+  connectToDB();
   expressLoader({ app: expressApp });
   // Logger.info("✌️ Express loaded");
 };

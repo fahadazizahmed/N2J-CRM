@@ -1,0 +1,22 @@
+import express from 'express';
+import routes from '../../../routes/routes';
+import AdminAuthController from '../controllers/admin.controller';
+import { validateRequest } from '../../../middlewares';
+import { adminAuthValidationRules } from '../validators/admin.validator';
+import { userPermissionGuard } from '../../../middlewares/user-permission-guard';
+import { authentication } from '../../../middlewares/authentication';
+
+const router = express.Router();
+const controller = new AdminAuthController();
+
+/* User or consultant signup Route with email or phone */
+router.post(
+    routes.Admin.ADD_USER,
+    authentication,
+    userPermissionGuard(['admin']),
+    adminAuthValidationRules(),
+    validateRequest,
+    controller.AddNewUser
+);
+
+export { router as AdminAuthRouter };

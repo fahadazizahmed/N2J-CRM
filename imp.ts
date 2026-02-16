@@ -1,0 +1,1 @@
+// npm run prisma:dev -- db seed run this command for seed 

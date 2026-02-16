@@ -1,10 +1,10 @@
 export default {
-  /** USER Authentication */
-  LOGIN: '/auth/login',
-  LOGOUT: '/auth/logout',
+  Shared: {
+    SET_PASSWORD: '/auth/set-password',
+    USER_LOGIN: '/auth/login',
+  },
+  Admin: {
+    ADD_USER: '/auth/add-user',
+  },
 
-  /** USER Management */
-  CREATE_USER: '/users',
-
-  // Other module routes
 };

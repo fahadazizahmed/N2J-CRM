@@ -8,8 +8,7 @@ import hpp from 'hpp';
 import { NotFoundError } from '../errors';
 import { errorHandler } from '../middlewares';
 import config from '../config';
-import { authRouter } from '../modules/auth/auth.routes';
-import { userRouter } from '../modules/user/user.routes';
+import authRouter from '../modules/auth/routes';
 
 export default ({ app }: { app: express.Application }) => {
   // It shows the real origin IP in the heroku or Cloudwatch logs
@@ -54,17 +53,8 @@ export default ({ app }: { app: express.Application }) => {
   app.use(cors());
   app.use(bodyParser.json());
 
-  // Debug middleware - log all requests
-  app.use((req, res, next) => {
-    console.log(`\n🔍 Incoming Request: ${req.method} ${req.path}`);
-    console.log('   Headers:', req.headers);
-    console.log('   Body:', req.body);
-    next();
-  });
-
   // Load all API routes
   app.use(config.api.prefix, authRouter);
-  app.use(config.api.prefix, userRouter);
 
   app.all('*', async (req, res) => {
     throw new NotFoundError(null);
