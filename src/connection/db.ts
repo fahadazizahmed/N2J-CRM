@@ -2,7 +2,7 @@ import { PrismaClient } from '../../generated/prisma';
 
 // Create a single instance of Prisma Client
 export const prisma = new PrismaClient({
-  log: ['query', 'info', 'warn', 'error'],
+  log: ['info', 'warn', 'error'],
 });
 
 const MAX_RETRIES = 5;

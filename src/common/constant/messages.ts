@@ -3,7 +3,7 @@ const InfoMessages = {
     ITEM_DELETE_SUCCESSFULLY: (key: string, id: string) =>
       `${key} Item with id: ${id} deleted successfully.`,
 
-    ITEM_UPDATED_SUCCESSFULLY: (key: string, id: string) =>
+    ITEM_UPDATED_SUCCESSFULLY: (key: string) =>
       `${key}  updated successfully.`,
     ITEM_UPDATED_SUCCESSFULLY_ATTRIBUTE: (key: string, id: string, attribute: string) =>
       `Attribute ${attribute} of ${key} Item with id: ${id} updated successfully.`,
@@ -12,6 +12,8 @@ const InfoMessages = {
   },
   AUTH: {
     PASSWORD_LENGTH_ERROR: 'Password must be greater then 6 letter',
+    LOGGED_IN_SUCCESSFULLY: "Logged in successfully.",
+    LOGGED_OUT_SUCCESSFULLY: "Logged out successfully."
   },
   //AUT_MODULE_ERROR
   //PROFILE_MODILE_ERRO

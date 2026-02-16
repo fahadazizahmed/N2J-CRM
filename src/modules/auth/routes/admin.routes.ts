@@ -16,7 +16,7 @@ router.post(
     userPermissionGuard(['admin']),
     adminAuthValidationRules(),
     validateRequest,
-    controller.AddNewUser
+    controller.addNewUser
 );
 
 export { router as AdminAuthRouter };

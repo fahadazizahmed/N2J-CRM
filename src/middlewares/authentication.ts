@@ -22,18 +22,33 @@ export const authentication = async (req: Request, res: Response, next: NextFunc
             throw new NotAuthorizedError('Invalid or expired token');
         }
 
+        // Check if session exists and is active
+        const session = await prisma.userSession.findFirst({
+            where: {
+                token: authorization,
+                user_id: decoded.id,
+                status: 1, // Active
+                expires_at: {
+                    gt: new Date() // Not expired
+                }
+            }
+        });
+
+        if (!session) {
+            throw new NotAuthorizedError('Session not found or expired. Please login again.');
+        }
+
         const user = await prisma.user.findUnique({
             where: { id: decoded.id },
             include: { roles: true }
         });
-        console.log("user", user)
 
         if (!user) {
             throw new NotAuthorizedError('User not found');
         }
 
         if (user.status !== 1) {
-            throw new NotAuthorizedError('User account is inactivesss');
+            throw new NotAuthorizedError('User account is inactive');
         }
 
         (req as any).user = user;

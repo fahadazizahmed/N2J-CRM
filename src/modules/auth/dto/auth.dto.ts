@@ -20,4 +20,6 @@ export interface ILoginDTO {
   email: string;
   password: string;
   role?: string;
+  ipAddress?: string;
+  userAgent?: string;
 }

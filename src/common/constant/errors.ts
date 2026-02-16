@@ -29,6 +29,7 @@ const ErrorMessages = {
     INVALID_CREDENTIALS: 'Invalid credentials',
     ACCOUNT_INACTIVE: 'Your account is inactive. Please contact admin.',
     NO_ACCESS_TO_LOGIN_AS: (role: string) => `You don't have access to login as ${role}`,
+    SESSION_NOT_FOUND: 'Session not found or already logged out',
   },
   GENERIC: {
     OPERATION_FAILED: (operation: string) => `Operation: ${operation} failed.`,

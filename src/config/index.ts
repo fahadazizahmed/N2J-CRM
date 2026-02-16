@@ -26,6 +26,16 @@ export default {
             `;
     },
     subject: "Invitation to N2J CRM"
+  },
+  ROLE_ADDED_EMAIL: {
+    content: (role: UserRoleType) => {
+      return `
+                <h3>Role Update - N2J CRM</h3>
+                <p>A new role <b>${role}</b> has been assigned to your account.</p>
+                <p>You can now access the features associated with this role using your existing credentials.</p>
+            `;
+    },
+    subject: "Role Assigned - N2J CRM"
   }
 
 

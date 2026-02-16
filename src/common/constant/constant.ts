@@ -13,13 +13,16 @@ const constant = {
     CREATE: 'CREATE',
     UPDATE: 'UPDATE',
     DELETE: 'DELETE',
-    LOGIN: 'LOGIN'
+    LOGIN: 'LOGIN',
+    LOGOUT: 'LOGOUT',
+    ROLE_ADDED: 'ROLE_ADDED'
   },
   ENTITY_TYPE: {
     USER: 'User',
     JOB: 'Job',
     INVOICE: 'Invoice',
-    VEHICLE: 'Vehicle'
+    VEHICLE: 'Vehicle',
+    EMAIL: 'Email'
   }
 
 };

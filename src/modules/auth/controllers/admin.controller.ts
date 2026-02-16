@@ -8,9 +8,11 @@ import AdminAuthService from '../services/admin.service';
 export default class AdminAuthController {
     private adminAuthService = new AdminAuthService();
 
-    AddNewUser = async (req: Request, res: Response) => {
+    addNewUser = async (req: Request, res: Response) => {
         try {
-            let user = await this.adminAuthService.AddNewUser(req.body);
+            // Pass the authenticated user's ID as actorId for audit logging
+            const actorId = (req as any).user?.id || null;
+            let user = await this.adminAuthService.addNewUser(req.body, actorId);
             sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_CREATED_SUCCESSFULLY('User'), 200, user);
         } catch (e: any) {
             throw new GenericError(e, ` Error from signup ${__filename}`);
