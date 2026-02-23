@@ -1,5 +1,5 @@
 import express from 'express';
-import routes from '../../../routes/routes';
+import routes from './routes';
 import AdminAuthController from '../controllers/admin.controller';
 import { validateRequest } from '../../../middlewares';
 import { adminAuthValidationRules } from '../validators/admin.validator';
@@ -19,4 +19,4 @@ router.post(
     controller.addNewUser
 );
 
-export { router as AdminAuthRouter };
+export { router as adminAuthRouter };

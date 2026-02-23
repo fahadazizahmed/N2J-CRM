@@ -12,7 +12,18 @@ import { auditService } from '../../../services/audit.service';
 import { Response, Request } from 'express';
 import { emailService } from '../../../services/email.service';
 
-export default class SharedAuthService {
+
+export interface ISharedAuthService {
+	verifyTokenAndSetPassword: (data: ISetPasswordDTO) => Promise<any>
+	forgotPassword(data: IForgotPasswordDTO): Promise<any>
+	login(res: Response, data: ILoginDTO): Promise<any>
+	getCurrentUser(req: Request, res: Response): Promise<any>
+	logout(req: Request, res: Response, header: any, userId: number): Promise<any>
+}
+
+export default class SharedAuthService implements ISharedAuthService {
+
+	// export default class SharedAuthService {
 	public async verifyTokenAndSetPassword(data: ISetPasswordDTO): Promise<any> {
 		// 1. Verify Token Signature
 		const decoded: any = isValidJWT(data.token, process.env.INVITE_SECRET as string);

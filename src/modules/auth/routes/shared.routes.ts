@@ -1,5 +1,5 @@
 import express from 'express';
-import routes from '../../../routes/routes';
+import routes from './routes';
 import SharedAuthController from '../controllers/shared.controller';
 import { sharedAuthValidationRules, sharedLoginValidationRules, forgotPasswordValidationRules } from '../validators/shared.validator';
 import { authentication } from '../../../middlewares/authentication';
