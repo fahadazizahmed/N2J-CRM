@@ -1,10 +1,22 @@
 import express from 'express';
-import AdminController from '../controllers/admin.controller';
-
+import routes from './routes';
+import AdminClientController from '../controllers/admin.controller';
+import { validateRequest } from '../../../middlewares';
+import { createClientValidationRules } from '../validators/admin.validator';
+import { authentication } from '../../../middlewares/authentication';
+import { userPermissionGuard } from '../../../middlewares/user-permission-guard';
 
 const router = express.Router();
-const controller = new AdminController();
+const controller = new AdminClientController();
 
+// POST /api/admin/add-client
+router.post(
+    routes.Admin.ADD_CLIENT,
+    authentication,
+    userPermissionGuard(['admin']),
+    createClientValidationRules(),
+    validateRequest,
+    controller.createClient
+);
 
-
-export { router as adminRouter };
+export { router as adminClientRouter };

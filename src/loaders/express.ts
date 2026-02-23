@@ -9,6 +9,7 @@ import { NotFoundError } from '../errors';
 import { errorHandler } from '../middlewares';
 import config from '../config';
 import authRouter from '../modules/auth/routes';
+import clientsRouter from '../modules/clients/routes';
 import cookieParser from "cookie-parser";
 
 export default ({ app }: { app: express.Application }) => {
@@ -33,7 +34,7 @@ export default ({ app }: { app: express.Application }) => {
       ],
     })
   );
-  app.use(cookieParser()); 
+  app.use(cookieParser());
   app.use(compression());
 
   /**
@@ -55,7 +56,7 @@ export default ({ app }: { app: express.Application }) => {
     process.env.FRONT_END_DOMAIN,
     'http://127.0.0.1:5173'
   ];
-  
+
   app.use(cors({
     origin: allowedOrigins,
     credentials: true, // 🔥 allow cookies
@@ -65,6 +66,7 @@ export default ({ app }: { app: express.Application }) => {
 
   // Load all API routes
   app.use(config.api.prefix, authRouter);
+  app.use(config.api.prefix, clientsRouter);         // → /api/v1/admin/...
 
   app.all('*', async (req, res) => {
     throw new NotFoundError(null);
@@ -72,3 +74,4 @@ export default ({ app }: { app: express.Application }) => {
   // Error-handling middleware (must be registered last)
   app.use(errorHandler);
 };
+

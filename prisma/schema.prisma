@@ -8,6 +8,35 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── Enums ───────
+
+enum GstStatus {
+  Pending
+  Approved
+  Not_Approved
+
+  @@map("gst_status")
+}
+
+enum CreditTerms {
+  Net_7
+  Net_14
+  Net_30
+  Net_60
+
+  @@map("credit_terms")
+}
+
+enum ClientStatus {
+  Pending_Review
+  Active
+  Suspended
+
+  @@map("client_status")
+}
+
+// ─── Core Models ────
+
 model Role {
   id    Int    @id @default(autoincrement())
   name  String @unique
@@ -17,17 +46,18 @@ model Role {
 }
 
 model User {
-  id            Int      @id @default(autoincrement())
+  id            Int           @id @default(autoincrement())
   name          String?
-  email         String   @unique
+  email         String        @unique
   password_hash String
   roles         Role[]
-  status        Int      @default(1) // 0: inactive, 1: active
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
+  status        Int           @default(1) // 0: inactive, 1: active
+  created_at    DateTime      @default(now())
+  updated_at    DateTime      @updatedAt
   invite_token  String?
   audit_logs    AuditLog[]
   sessions      UserSession[]
+  clients       Client[] // primary contact for clients
 
   @@map("users")
 }
@@ -51,28 +81,55 @@ model AuditLog {
   id          Int      @id @default(autoincrement())
   actor_id    Int?
   actor       User?    @relation(fields: [actor_id], references: [id])
-  action      String   // CREATE, UPDATE, DELETE, INVITE_SENT, LOGIN, etc.
-  entity_type String   // User, Job, Invoice, Vehicle, etc.
-  entity_id   Int?     // ID of the entity affected
-  metadata    Json?    // Optional JSON data for extra details
+  action      String // CREATE, UPDATE, DELETE, INVITE_SENT, LOGIN, etc.
+  entity_type String // User, Job, Invoice, Vehicle, etc.
+  entity_id   Int? // ID of the entity affected
+  metadata    Json? // Optional JSON data for extra details
   created_at  DateTime @default(now())
 
   @@map("audit_logs")
 }
 
 model FailedOperation {
-  id              Int       @id @default(autoincrement())
-  operation_type  String    // 'EMAIL' or 'AUDIT_LOG'
-  entity_type     String    // 'USER', 'ORDER', etc.
-  entity_id       Int?      // ID of the entity affected
-  payload         Json      // Store the data that failed (email details, audit log details)
-  error_message   String?   @db.Text
-  retry_count     Int       @default(0)
-  status          String    @default("PENDING") // 'PENDING', 'RETRIED', 'RESOLVED', 'ABANDONED'
-  created_at      DateTime  @default(now())
-  last_retry_at   DateTime?
-  resolved_at     DateTime?
+  id             Int       @id @default(autoincrement())
+  operation_type String // 'EMAIL' or 'AUDIT_LOG'
+  entity_type    String // 'USER', 'ORDER', etc.
+  entity_id      Int? // ID of the entity affected
+  payload        Json // Store the data that failed (email details, audit log details)
+  error_message  String?   @db.Text
+  retry_count    Int       @default(0)
+  status         String    @default("PENDING") // 'PENDING', 'RETRIED', 'RESOLVED', 'ABANDONED'
+  created_at     DateTime  @default(now())
+  last_retry_at  DateTime?
+  resolved_at    DateTime?
 
   @@map("failed_operations")
 }
 
+// ─── Client ────
+
+model Client {
+  id Int @id @default(autoincrement())
+
+  // Primary contact user
+  user_id      Int
+  user         User    @relation(fields: [user_id], references: [id], onDelete: Restrict)
+  company_name String
+  abn          String? @unique
+  address      String?
+  phone        String?
+
+  // Financial settings
+  gst_approved GstStatus   @default(Pending)
+  credit_terms CreditTerms @default(Net_30)
+  credit_score Int         @default(0)
+
+  status     ClientStatus @default(Pending_Review)
+  created_at DateTime     @default(now())
+  updated_at DateTime     @updatedAt
+
+  @@unique([user_id, company_name]) // prevent duplicate company per user at DB level
+  @@index([user_id])
+  @@index([status])
+  @@map("clients")
+}

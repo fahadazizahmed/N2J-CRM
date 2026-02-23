@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "NODE_ENV=production node --inspect=5858 -r ts-node/register ./src/index.ts",
-    "dev": "NODE_ENV=develop node --inspect=5858 -r ts-node/register ./src/index.ts",
+    "start": "cross-env NODE_ENV=production node --inspect=5858 -r ts-node/register ./src/index.ts",
+    "dev": "cross-env NODE_ENV=develop node --inspect=5858 -r ts-node/register ./src/index.ts",
     "prisma:dev": "dotenv -e develop.env -- prisma",
     "prisma:prod": "dotenv -e production.env -- prisma",
     "db:push:dev": "dotenv -e develop.env -- prisma db push",
@@ -44,6 +44,7 @@
     "compression": "^1.8.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "cross-env": "^10.1.0",
     "dotenv": "^16.6.1",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.3",

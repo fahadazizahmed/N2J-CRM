@@ -1,4 +1,5 @@
 export default {
+
   Shared: {
     //Auth
     SET_PASSWORD: '/auth/set-password',
@@ -8,9 +9,10 @@ export default {
     REFRESH_TOKEN: '/auth/refresh',
     AUTH_ME: '/auth/me',
   },
-  Admin: {
-    //Auth
-    ADD_USER: '/auth/add-user',
-  },
 
+
+  Admin: {
+    ADD_USER: '/auth/add-user',
+    ADD_CLIENT: '/add-client',   // POST /api/v1/admin/add-client
+  },
 };
