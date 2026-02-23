@@ -6,7 +6,7 @@ export const userPermissionGuard = (permittedRoles: UserRoleType[]) => {
     return async (req: Request, res: Response, next: NextFunction) => {
         try {
             const user = (req as any).user;
-            console.log("user", user)
+
 
             // user.roles is populated by authentication middleware
             if (!user.roles || !Array.isArray(user.roles)) {

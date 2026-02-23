@@ -17,11 +17,11 @@ async function startServer() {
 
     // Handle server errors
     server.on('error', (error) => {
-      console.error('\x1b[31mServer error:', error, '\x1b[0m');
+      console.error('\x1b[31mServer error: ', error, '\x1b[0m');
       process.exit(1); // Exit the process on critical server errors
     });
   } catch (error) {
-    console.error('\x1b[31mFailed to start server:', error, '\x1b[0m');
+    console.error('\x1b[31mFailed to start server: ', error, '\x1b[0m');
     process.exit(1); // Exit the process if the server fails to start
   }
 }

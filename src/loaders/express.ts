@@ -9,6 +9,7 @@ import { NotFoundError } from '../errors';
 import { errorHandler } from '../middlewares';
 import config from '../config';
 import authRouter from '../modules/auth/routes';
+import cookieParser from "cookie-parser";
 
 export default ({ app }: { app: express.Application }) => {
   // It shows the real origin IP in the heroku or Cloudwatch logs
@@ -32,7 +33,7 @@ export default ({ app }: { app: express.Application }) => {
       ],
     })
   );
-
+  app.use(cookieParser()); 
   app.use(compression());
 
   /**
@@ -48,9 +49,18 @@ export default ({ app }: { app: express.Application }) => {
   });
 
   // Middleware that transforms the raw string of req.body into json
-  app.use(json());
 
-  app.use(cors());
+
+  const allowedOrigins = [
+    process.env.FRONT_END_DOMAIN,
+    'http://127.0.0.1:5173'
+  ];
+  
+  app.use(cors({
+    origin: allowedOrigins,
+    credentials: true, // 🔥 allow cookies
+  }));
+
   app.use(bodyParser.json());
 
   // Load all API routes

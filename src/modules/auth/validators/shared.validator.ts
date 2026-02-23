@@ -64,6 +64,21 @@ export const sharedLoginValidationRules = () => {
   ];
 };
 
+export const forgotPasswordValidationRules = () => {
+  return [
+    body('email')
+      .exists()
+      .withMessage(ErrorMessages.VALIDATION.KEY_MISSING('email'))
+      .bail()
+      .not()
+      .isEmpty()
+      .withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('email'))
+      .bail()
+      .isEmail()
+      .withMessage(ErrorMessages.AUTH.INVALID_EMAIL),
+  ];
+};
+
 function validatePassword(password: any) {
   //const re = /^(?!.*[_\s-]{2,})[a-zA-Z0-9][a-zA-Z0-9_\-]*[a-zA-Z0-9]$/
   const re = /^(?=.*\d)(?=.*[A-Z]).{9,}$/;

@@ -19,6 +19,7 @@ export default class AdminAuthService implements IAdminAuthService {
     /* email singup service */
     public async addNewUser(userCreateDTO: IUserCreateDTO, actorId?: number | null): Promise<User & { roles: Role[] }> {
 
+
         // 1. Find Role ID
         const role = await prisma.role.findUnique({
             where: { name: userCreateDTO.role }
@@ -92,13 +93,14 @@ export default class AdminAuthService implements IAdminAuthService {
                 inviteToken = jwt.sign(
                     {
                         id: user.id,
+                        role: userCreateDTO.role,
                         type: constant.JWT_TOKEN_TYPE.INVITE
                     },
                     process.env.INVITE_SECRET as string,
-                    { expiresIn: process.env.SESSION_EXPIRES_IN || '24h' }
+                    { expiresIn: process.env.PASSWORD_SESSION_EXPIRES_IN || '24h' }
                 );
 
-                const hashedToken = await bcrypt.hash(inviteToken, 10);
+                const hashedToken = await bcrypt.hash(inviteToken, 12);
 
                 // Update user with token in DB (within transaction)
                 user = await tx.user.update({
@@ -143,7 +145,7 @@ export default class AdminAuthService implements IAdminAuthService {
             ]);
         } else {
             // Case: New User or Pending User -> Send Invite
-            const inviteLink = `${process.env.FRONT_END_DOMAIN}/invite?token=${token}`;
+            const inviteLink = `${process.env.FRONT_END_DOMAIN}/set-password?token=${token}`;
 
             Promise.allSettled([
                 emailService.sendEmailWithRetry(

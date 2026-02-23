@@ -1,4 +1,3 @@
-
 import { UserRoleType } from "../../../common/types/role.types";
 export interface IUserCreateDTO {
   email?: string;
@@ -14,6 +13,10 @@ export interface ISetPasswordDTO {
   token: string;
   password: string;
   confirmPassword: string;
+}
+
+export interface IForgotPasswordDTO {
+  email: string;
 }
 
 export interface ILoginDTO {

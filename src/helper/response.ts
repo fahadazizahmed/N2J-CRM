@@ -1,7 +1,7 @@
 import { Response } from 'express';
 
 // Define allowed status codes for clarity
-export type IStatusCode = 200 | 201 | 400 | 404 | 422;
+export type IStatusCode = 200 | 201 | 400 | 404 | 422 | 401;
 
 /**
  * Sends a standardized error response
