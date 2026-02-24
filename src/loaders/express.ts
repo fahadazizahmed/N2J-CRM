@@ -54,7 +54,8 @@ export default ({ app }: { app: express.Application }) => {
 
   const allowedOrigins = [
     process.env.FRONT_END_DOMAIN,
-    'http://127.0.0.1:5173'
+    'http://127.0.0.1:5173',
+    // 'http://192.168.100.118:5173'
   ];
 
   app.use(cors({

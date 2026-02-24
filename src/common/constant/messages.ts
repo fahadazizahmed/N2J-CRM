@@ -9,6 +9,8 @@ const InfoMessages = {
       `Attribute ${attribute} of ${key} Item with id: ${id} updated successfully.`,
     ITEM_CREATED_SUCCESSFULLY: (key: string) => `${key} created successfully.`,
     ITEM_GET_SUCCESSFULLY: (key: string) => `${key} Item get successfully.`,
+    ITEM_DELETED_SUCCESSFULLY: (key: string) => `${key} suspended successfully.`,
+    ITEM_FETCHED_SUCCESSFULLY: (key: string) => `${key} fetched successfully.`,
   },
   AUTH: {
     PASSWORD_LENGTH_ERROR: 'Password must be greater then 6 letter',

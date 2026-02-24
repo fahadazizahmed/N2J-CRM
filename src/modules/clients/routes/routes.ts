@@ -1,18 +1,8 @@
 export default {
-
-  Shared: {
-    //Auth
-    SET_PASSWORD: '/auth/set-password',
-    FORGOT_PASSWORD: '/auth/forgot-password',
-    USER_LOGIN: '/auth/login',
-    USER_LOGOUT: '/auth/logout',
-    REFRESH_TOKEN: '/auth/refresh',
-    AUTH_ME: '/auth/me',
-  },
-
-
   Admin: {
-    ADD_USER: '/auth/add-user',
-    ADD_CLIENT: '/add-client',   // POST /api/v1/admin/add-client
+    ADD_CLIENT: '/add-client',          // POST   /api/v1/admin/add-client
+    GET_CLIENTS: '/get-clients',         // GET    /api/v1/admin/get-clients
+    UPDATE_CLIENT: '/update-client/:id',   // PUT    /api/v1/admin/update-client/:id
+    DELETE_CLIENT: '/delete-client/:id',   // DELETE /api/v1/admin/delete-client/:id
   },
 };
