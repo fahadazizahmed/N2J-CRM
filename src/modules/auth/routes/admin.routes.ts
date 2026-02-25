@@ -5,6 +5,7 @@ import { validateRequest } from '../../../middlewares';
 import { adminAuthValidationRules } from '../validators/admin.validator';
 import { userPermissionGuard } from '../../../middlewares/user-permission-guard';
 import { authentication } from '../../../middlewares/authentication';
+import constant from '../../../common/constant/constant';
 
 const router = express.Router();
 const controller = new AdminAuthController();
@@ -13,7 +14,7 @@ const controller = new AdminAuthController();
 router.post(
     routes.Admin.ADD_USER,
     authentication,
-    userPermissionGuard(['admin']),
+    userPermissionGuard([constant.ROLES.ADMIN]),
     adminAuthValidationRules(),
     validateRequest,
     controller.addNewUser

@@ -22,6 +22,7 @@ model User {
   email         String   @unique
   password_hash String
   roles         Role[]
+  active_role   String?
   status        Int      @default(1) // 0: inactive, 1: active
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt

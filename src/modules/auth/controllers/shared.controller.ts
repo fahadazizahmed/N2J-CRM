@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { sendErrorResponse, sendSuccessResponse } from '../../../helper/response';
+import { sendSuccessResponse } from '../../../helper/response';
 import SharedAuthService from '../services/shared.service';
 import { GenericError } from '../../../errors/generic-error';
 import InfoMessages from '../../../common/constant/messages';
@@ -63,6 +63,16 @@ export default class SharedAuthController {
       sendSuccessResponse(res, InfoMessages.AUTH.LOGGED_OUT_SUCCESSFULLY, 200, result);
     } catch (e: any) {
       throw new GenericError(e, ` Error from Logout ${__filename}`);
+    }
+  };
+
+  selectRole = async (req: Request, res: Response) => {
+    try {
+      let userId = (req as any).user?.id;
+      const result = await this.sharedAuthService.selectRole(userId, req.body.roleId);
+      sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_UPDATED_SUCCESSFULLY('Role'), 200, result);
+    } catch (e: any) {
+      throw new GenericError(e, ` Error from selectRole ${__filename}`);
     }
   };
 }

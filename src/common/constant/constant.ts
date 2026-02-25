@@ -31,7 +31,12 @@ const constant = {
     INVOICE: 'Invoice',
     VEHICLE: 'Vehicle',
     EMAIL: 'Email'
-  }
-
+  },
+  ROLES: {
+    ADMIN: 'admin',
+    CLIENT: 'client',
+    SUBCONTRACTOR: 'subcontractor',
+    DRIVER: 'driver',
+  } as const
 };
 export default constant;

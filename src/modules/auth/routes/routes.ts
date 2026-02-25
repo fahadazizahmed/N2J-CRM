@@ -7,6 +7,7 @@ export default {
     USER_LOGOUT: '/auth/logout',
     REFRESH_TOKEN: '/auth/refresh',
     AUTH_ME: '/auth/me',
+    SELECT_ROLE: '/auth/select-role',
   },
   Admin: {
     //Auth

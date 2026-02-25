@@ -19,6 +19,7 @@ export interface ISharedAuthService {
 	login(res: Response, data: ILoginDTO): Promise<any>
 	getCurrentUser(req: Request, res: Response): Promise<any>
 	logout(req: Request, res: Response, header: any, userId: number): Promise<any>
+	selectRole(userId: number, role: number): Promise<any>
 }
 
 export default class SharedAuthService implements ISharedAuthService {
@@ -173,14 +174,6 @@ export default class SharedAuthService implements ISharedAuthService {
 			throw new BadRequestError(ErrorMessages.AUTH.ACCOUNT_INACTIVE);
 		}
 
-		if (data.role) {
-			const hasRole = user.roles.some((r: any) => r.name === data.role);
-			if (!hasRole) {
-				throw new BadRequestError(ErrorMessages.AUTH.NO_ACCESS_TO_LOGIN_AS(data.role));
-			}
-		}
-
-
 		const accessToken = jwt.sign(
 			{
 				id: user.id,
@@ -253,10 +246,18 @@ export default class SharedAuthService implements ISharedAuthService {
 
 		let userSession = (req as any).user;
 
-		const user = await prisma.user.findUnique({
+		let user = await prisma.user.findUnique({
 			where: { id: userSession.id },
 			include: { roles: true }
 		});
+
+		if (user && user.roles.length === 1 && !user.active_role) {
+			user = await prisma.user.update({
+				where: { id: user.id },
+				data: { active_role: user.roles[0].name },
+				include: { roles: true }
+			});
+		}
 
 		const { password_hash, invite_token, ...safeUser } = user!;
 		return safeUser
@@ -300,6 +301,12 @@ export default class SharedAuthService implements ISharedAuthService {
 			data: { status: 0, logout_at: new Date() },
 		});
 
+		// Reset active role on logout
+		await prisma.user.update({
+			where: { id: userId },
+			data: { active_role: null },
+		});
+
 		// Clear cookies
 		res.clearCookie("accessToken");
 		res.clearCookie("refreshToken");
@@ -316,5 +323,51 @@ export default class SharedAuthService implements ISharedAuthService {
 		]);
 
 		return { message: "Logged out successfully" };
+	}
+
+	public async selectRole(userId: number, roleId: number): Promise<any> {
+
+		const user = await prisma.user.findUnique({
+			where: { id: userId },
+			include: { roles: true }
+		});
+
+		if (!user) {
+			throw new BadRequestError(ErrorMessages.AUTH.USER_NOT_FOUND);
+		}
+
+		// check if this role exists in user roles
+		// Find the role object in user's roles
+		const roleObject = user.roles.find((r: any) => r.id === roleId);
+
+		// Check if role exists
+		if (!roleObject) {
+			throw new BadRequestError(
+				ErrorMessages.AUTH.INVALID_ROLE || 'User does not have this role'
+			);
+		}
+
+		// // update active_role
+		const updatedUser = await prisma.user.update({
+			where: { id: userId },
+			data: { active_role: roleObject.name }
+		});
+
+		const { password_hash, invite_token, ...safeUser } = updatedUser;
+
+		// Audit Log
+		Promise.allSettled([
+			auditService.log({
+				actor_id: userId,
+				action: constant.AUDIT_LOG_ACTION.UPDATE,
+				entity_type: constant.ENTITY_TYPE.USER,
+				entity_id: userId,
+				metadata: { action: 'Role Selected', role: roleObject.name }
+			})
+		]);
+
+		return {
+			user: safeUser
+		};
 	}
 }

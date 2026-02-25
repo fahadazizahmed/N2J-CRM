@@ -28,6 +28,7 @@ export const authentication = async (req: Request, res: Response, next: NextFunc
                         name: true,
                         email: true,
                         roles: true,
+                        active_role:true
                     },
                 });
 
@@ -152,6 +153,7 @@ export const authentication = async (req: Request, res: Response, next: NextFunc
                 name: true,
                 email: true,
                 roles: true,
+                active_role:true
             },
         });
 

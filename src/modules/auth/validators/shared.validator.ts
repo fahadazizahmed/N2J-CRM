@@ -44,12 +44,12 @@ export const sharedLoginValidationRules = () => {
       .isEmail()
       .withMessage(ErrorMessages.AUTH.INVALID_EMAIL),
 
-    body('role')
-      .exists()
-      .withMessage(ErrorMessages.VALIDATION.KEY_MISSING('role'))
-      .bail()
-      .custom((value) => UserRoles.includes(value))
-      .withMessage(ErrorMessages.AUTH.INVALID_ROLE),
+    // body('role')
+    //   .exists()
+    //   .withMessage(ErrorMessages.VALIDATION.KEY_MISSING('role'))
+    //   .bail()
+    //   .custom((value) => UserRoles.includes(value))
+    //   .withMessage(ErrorMessages.AUTH.INVALID_ROLE),
 
     body('password')
       .exists()
@@ -76,6 +76,18 @@ export const forgotPasswordValidationRules = () => {
       .bail()
       .isEmail()
       .withMessage(ErrorMessages.AUTH.INVALID_EMAIL),
+  ];
+};
+
+export const selectRoleValidationRules = () => {
+  return [
+    body('roleId')
+      .exists()
+      .withMessage(ErrorMessages.VALIDATION.KEY_MISSING('roleId'))
+      .bail()
+      .notEmpty()
+      .withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('roleId'))
+    
   ];
 };
 
