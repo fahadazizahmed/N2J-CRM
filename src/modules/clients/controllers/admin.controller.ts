@@ -33,6 +33,14 @@ export default class AdminClientController {
         } catch (e: any) { throw new GenericError(e, `Error in deleteClient ${__filename}`); }
     };
 
+    // GET /api/v1/admin/get-client/:id
+    getClientById = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const client = await this.svc.getClientById(Number(req.params.id));
+            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_GET_SUCCESSFULLY('Client'), 200, client);
+        } catch (e: any) { throw new GenericError(e, `Error in getClientById ${__filename}`); }
+    };
+
     // GET /api/v1/admin/get-clients
     getClients = async (req: Request, res: Response): Promise<void> => {
         try {

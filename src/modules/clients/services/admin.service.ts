@@ -87,6 +87,13 @@ export default class AdminClientService implements IAdminClientService {
         auditService.logWithRetry({ actor_id: actorId ?? null, action: constant.AUDIT_LOG_ACTION.UPDATE, entity_type: 'Client', entity_id: id, metadata: { status: 'Suspended' } });
     }
 
+    // ─── Get By ID ────────────────────────────────────────────────────────────
+    public async getClientById(id: number): Promise<Client> {
+        const client = await prisma.client.findUnique({ where: { id } });
+        if (!client) throw new NotFoundError('Client not found');
+        return client;
+    }
+
     // ─── Get with Pagination ─────────────────────────────────────────────────
     public async getClients(query: IGetClientsQuery): Promise<{ data: Client[]; total: number; page: number; limit: number }> {
 

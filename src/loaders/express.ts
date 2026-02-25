@@ -52,16 +52,24 @@ export default ({ app }: { app: express.Application }) => {
   // Middleware that transforms the raw string of req.body into json
 
 
-  const allowedOrigins = [
-    process.env.FRONT_END_DOMAIN,
-    'http://127.0.0.1:5173',
-    // 'http://192.168.100.118:5173'
-  ];
+  // const allowedOrigins = [
+  //   process.env.FRONT_END_DOMAIN,
+  //   'http://127.0.0.1:5173',
+
+  //   // 'http://192.168.100.118:5173'
+  // ];
+
+  // app.use(cors({
+  //   origin: allowedOrigins,
+  //   credentials: true, // 🔥 allow cookies
+  // }));
+
 
   app.use(cors({
-    origin: allowedOrigins,
-    credentials: true, // 🔥 allow cookies
-  }));
+    origin: "*",
+    credentials: true,
+  }))
+
 
   app.use(bodyParser.json());
 
