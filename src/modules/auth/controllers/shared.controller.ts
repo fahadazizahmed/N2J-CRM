@@ -48,7 +48,7 @@ export default class SharedAuthController {
   getCurrentUser = async (req: Request, res: Response) => {
     try {
       const result = await this.sharedAuthService.getCurrentUser(req, res);
-      sendSuccessResponse(res, InfoMessages.AUTH.LOGGED_OUT_SUCCESSFULLY, 200, result);
+      sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_GET_SUCCESSFULLY('User'), 200, result);
     } catch (e: any) {
       throw new GenericError(e, ` Error from Logout ${__filename}`);
     }

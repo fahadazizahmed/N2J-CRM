@@ -9,6 +9,7 @@ import { NotFoundError } from '../errors';
 import { errorHandler } from '../middlewares';
 import config from '../config';
 import authRouter from '../modules/auth/routes';
+import clientsRouter from '../modules/clients/routes';
 import cookieParser from "cookie-parser";
 
 export default ({ app }: { app: express.Application }) => {
@@ -33,7 +34,7 @@ export default ({ app }: { app: express.Application }) => {
       ],
     })
   );
-  app.use(cookieParser()); 
+  app.use(cookieParser());
   app.use(compression());
 
   /**
@@ -51,20 +52,30 @@ export default ({ app }: { app: express.Application }) => {
   // Middleware that transforms the raw string of req.body into json
 
 
-  const allowedOrigins = [
-    process.env.FRONT_END_DOMAIN,
-    'http://127.0.0.1:5173'
-  ];
-  
+  // const allowedOrigins = [
+  //   process.env.FRONT_END_DOMAIN,
+  //   'http://127.0.0.1:5173',
+
+  //   // 'http://192.168.100.118:5173'
+  // ];
+
+  // app.use(cors({
+  //   origin: allowedOrigins,
+  //   credentials: true, // 🔥 allow cookies
+  // }));
+
+
   app.use(cors({
-    origin: allowedOrigins,
-    credentials: true, // 🔥 allow cookies
-  }));
+    origin: "*",
+    credentials: true,
+  }))
+
 
   app.use(bodyParser.json());
 
   // Load all API routes
   app.use(config.api.prefix, authRouter);
+  app.use(config.api.prefix, clientsRouter);         // → /api/v1/admin/...
 
   app.all('*', async (req, res) => {
     throw new NotFoundError(null);
@@ -72,3 +83,4 @@ export default ({ app }: { app: express.Application }) => {
   // Error-handling middleware (must be registered last)
   app.use(errorHandler);
 };
+

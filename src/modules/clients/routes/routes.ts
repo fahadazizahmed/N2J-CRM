@@ -1,4 +1,5 @@
 export default {
+
   Shared: {
     //Auth
     SET_PASSWORD: '/auth/set-password',
@@ -8,9 +9,13 @@ export default {
     REFRESH_TOKEN: '/auth/refresh',
     AUTH_ME: '/auth/me',
   },
-  Admin: {
-    //Auth
-    ADD_USER: '/auth/add-user',
-  },
 
+
+  Admin: {
+    ADD_CLIENT: '/add-client',
+    GET_CLIENT: '/get-client/:id',
+    GET_CLIENTS: '/get-clients',
+    UPDATE_CLIENT: '/update-client/:id',
+    DELETE_CLIENT: '/delete-client/:id',
+  },
 };

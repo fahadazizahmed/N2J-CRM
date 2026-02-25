@@ -243,6 +243,9 @@ export default class SharedAuthService implements ISharedAuthService {
 
 
 	public async getCurrentUser(req: Request, res: Response): Promise<any> {
+		console.log("we herere");
+		console.log(req.cookies);
+
 
 		let userSession = (req as any).user;
 
