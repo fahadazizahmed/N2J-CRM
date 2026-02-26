@@ -19,6 +19,10 @@ export default class AdminAuthService implements IAdminAuthService {
     /* email singup service */
     public async addNewUser(userCreateDTO: IUserCreateDTO, actorId?: number | null): Promise<User & { roles: Role[] }> {
 
+        // Normalize email to lowercase so "Fahad@gmail.com" === "fahad@gmail.com" at every layer
+        if (userCreateDTO.email) {
+            userCreateDTO.email = userCreateDTO.email.toLowerCase().trim();
+        }
 
         // 1. Find Role ID
         const role = await prisma.role.findUnique({

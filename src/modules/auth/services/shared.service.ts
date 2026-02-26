@@ -334,6 +334,7 @@ export default class SharedAuthService implements ISharedAuthService {
 			where: { id: userId },
 			include: { roles: true }
 		});
+		console.log("hhhh", user)
 
 		if (!user) {
 			throw new BadRequestError(ErrorMessages.AUTH.USER_NOT_FOUND);

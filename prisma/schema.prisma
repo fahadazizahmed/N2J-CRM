@@ -11,26 +11,26 @@ datasource db {
 // ─── Enums ───────
 
 enum GstStatus {
-  Pending
-  Approved
-  Not_Approved
+  pending
+  approved
+  notApproved
 
   @@map("gst_status")
 }
 
 enum CreditTerms {
-  Net_7
-  Net_14
-  Net_30
-  Net_60
+  net_7
+  net_14
+  net_30
+  net_60
 
   @@map("credit_terms")
 }
 
 enum ClientStatus {
-  Pending_Review
-  Active
-  Suspended
+  pending
+  active
+  suspended
 
   @@map("client_status")
 }
@@ -112,25 +112,25 @@ model FailedOperation {
 model Client {
   id Int @id @default(autoincrement())
 
-  // Primary contact user
-  user_id      Int
-  user         User    @relation(fields: [user_id], references: [id], onDelete: Restrict)
-  company_name String
-  abn          String? @unique
+  // Primary contact user (the User row created for this client)
+  user_id    Int  @unique  // 1-to-1: each client has exactly one user account
+  user       User @relation(fields: [user_id], references: [id], onDelete: Restrict)
+
+  client_name  String        // mirrors User.name — the client's business / display name
+  abn          String?       @unique
   address      String?
   phone        String?
+  country_code String?       // e.g. "AU", "US" — used for phone validation
 
   // Financial settings
-  gst_approved GstStatus   @default(Pending)
-  credit_terms CreditTerms @default(Net_30)
+  gst_status   GstStatus   @default(pending)
+  credit_terms CreditTerms @default(net_30)
   credit_score Int         @default(0)
 
-  status     ClientStatus @default(Pending_Review)
+  status     ClientStatus @default(pending)
   created_at DateTime     @default(now())
   updated_at DateTime     @updatedAt
 
-  @@unique([user_id, company_name]) // prevent duplicate company per user at DB level
-  @@index([user_id])
   @@index([status])
   @@map("clients")
 }

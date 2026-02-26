@@ -9,6 +9,10 @@ const constant = {
     MIN_LENGTH: 3,
     MAX_LENGTH: 50,
   },
+  CREDIT_SCORE: {
+    MIN: 0,
+    MAX: 100,
+  },
   // ACCESS_TOKEN_COOKIES_EXPIRY: 15 * 60 * 1000,//15 min
   // REFRESH_TOKEN_COOKIES_EXPIRY: 30 * 24 * 60 * 60 * 1000, // 30 days
 
@@ -27,6 +31,7 @@ const constant = {
   },
   ENTITY_TYPE: {
     USER: 'User',
+    CLIENT: 'Client',
     JOB: 'Job',
     INVOICE: 'Invoice',
     VEHICLE: 'Vehicle',
@@ -37,6 +42,10 @@ const constant = {
     CLIENT: 'client',
     SUBCONTRACTOR: 'subcontractor',
     DRIVER: 'driver',
-  } as const
+  } as const,
+  PAGINATION: {
+    DEFAULT_PAGE: 1,
+    DEFAULT_LIMIT: 10,
+  }
 };
 export default constant;

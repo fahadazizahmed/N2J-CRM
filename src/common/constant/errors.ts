@@ -31,6 +31,25 @@ const ErrorMessages = {
     NO_ACCESS_TO_LOGIN_AS: (role: string) => `You don't have access to login as ${role}`,
     SESSION_NOT_FOUND: 'Session not found or already logged out',
   },
+
+
+  CLIENT: {
+    INVALID_GST_STATUS: 'Invalid GST status',
+    INVALID_CREDIT_TERMS: 'Invalid credit terms',
+    INVALID_CLIENT_STATUS: 'Invalid client status',
+    DUPLICATE_EMAIL: 'A user with this email already exists',
+    DUPLICATE_ABN: 'A client with this ABN already exists',
+    DUPLICATE_CLIENT_NAME: 'A client with this name already exists',
+    CLIENT_NOT_FOUND: 'Client not found',
+  },
+
+
+
+
+
+
+
+
   GENERIC: {
     OPERATION_FAILED: (operation: string) => `Operation: ${operation} failed.`,
   },
