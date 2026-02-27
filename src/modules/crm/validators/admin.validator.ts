@@ -49,6 +49,7 @@ export const createClientValidationRules = (): ValidationChain[] => [
         .bail()
         .custom((value, { req }) => {
             const country = req.body.countryCode as CountryCode;
+
             if (!country) {
                 throw new Error('Country code is required');
             }
@@ -74,9 +75,9 @@ export const createClientValidationRules = (): ValidationChain[] => [
         .bail().custom((value) => validateEmail(value))
         .withMessage(ErrorMessages.AUTH.INVALID_EMAIL),
 
-    body('gtsStatus')
+    body('gstStatus')
         .exists()
-        .withMessage(ErrorMessages.VALIDATION.KEY_MISSING('gtsStatus'))
+        .withMessage(ErrorMessages.VALIDATION.KEY_MISSING('gstStatus'))
         .bail()
         .custom((value) => GSTStatus.includes(value))
         .withMessage(ErrorMessages.CLIENT.INVALID_GST_STATUS),
@@ -130,22 +131,22 @@ export const updateClientValidationRules = (): ValidationChain[] => [
         .notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('address')).bail()
         .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('address')),
 
-    body('phone')
-        .optional()
-        .notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('phone')).bail()
-        .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('phone')).bail()
-        .custom((value, { req }) => {
-            const country = req.body.countryCode as CountryCode;
-            if (!country) throw new Error('countryCode is required when updating phone');
-            if (!isValidPhone(value, country)) throw new Error(`Invalid phone number for country ${country}`);
-            return true;
-        }),
+    // body('phone')
+    //     .optional()
+    //     .notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('phone')).bail()
+    //     .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('phone')).bail()
+    //     .custom((value, { req }) => {
+    //         const country = req.body.countryCode as CountryCode;
+    //         if (!country) throw new Error('countryCode is required when updating phone');
+    //         if (!isValidPhone(value, country)) throw new Error(`Invalid phone number for country ${country}`);
+    //         return true;
+    //     }),
 
-    body('countryCode')
-        .optional()
-        .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('countryCode')),
+    // body('countryCode')
+    //     .optional()
+    //     .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('countryCode')),
 
-    body('gtsStatus')
+    body('gstStatus')
         .optional()
         .custom((value) => GSTStatus.includes(value))
         .withMessage(ErrorMessages.CLIENT.INVALID_GST_STATUS),

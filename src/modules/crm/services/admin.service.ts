@@ -33,7 +33,10 @@ export default class AdminCrmService implements IAdminCrmService {
         actorId?: number | null
     ): Promise<Client & { user: { id: number; email: string; name: string | null } }> {
         try {
-            const { clientName, abn, address, phone, countryCode, gtsStatus, creditTerms, creditScore, status } = createClientDTO;
+            const { clientName, abn, address, phone, countryCode, gstStatus, creditTerms, creditScore, status } = createClientDTO;
+
+            console.log("createClientDTO", createClientDTO)
+
 
             // Normalize email to lowercase — ensures "Fahad@gmail.com" and "fahad@gmail.com"
             // are treated as the same address at every layer (DB check, storage, invite email).
@@ -126,7 +129,7 @@ export default class AdminCrmService implements IAdminCrmService {
                         address: address ?? null,
                         phone: phone ?? null,
                         country_code: countryCode ?? null,
-                        gst_status: gtsStatus as GstStatus,
+                        gst_status: gstStatus as GstStatus,
                         credit_terms: creditTerms as CreditTerms,
                         credit_score: creditScore ?? 0,
                         status: status as PrismaClientStatus,
@@ -192,8 +195,8 @@ export default class AdminCrmService implements IAdminCrmService {
 
     // ─── Update ───────────────────────────────────────────────────────────────────
     public async updateClient(id: number, dto: IUpdateClientDTO, actorId?: number | null): Promise<Client & { user: { id: number; email: string; name: string | null } }> {
-
-        const { clientName, abn, address, phone, countryCode, gtsStatus, creditTerms, creditScore, status } = dto;
+        console.log("i am reache pot", dto)
+        const { clientName, abn, address, phone, countryCode, gstStatus, creditTerms, creditScore, status } = dto;
 
         // ── 1. Confirm client exists ─────────────────────────────────────────────────
         const existing = await prisma.client.findUnique({
@@ -243,7 +246,7 @@ export default class AdminCrmService implements IAdminCrmService {
                         ...(address !== undefined && { address }),
                         ...(phone !== undefined && { phone }),
                         ...(countryCode !== undefined && { country_code: countryCode }),
-                        ...(gtsStatus !== undefined && { gst_status: gtsStatus as GstStatus }),
+                        ...(gstStatus !== undefined && { gst_status: gstStatus as GstStatus }),
                         ...(creditTerms !== undefined && { credit_terms: creditTerms as CreditTerms }),
                         ...(creditScore !== undefined && { credit_score: creditScore }),
                         ...(status !== undefined && { status: status as PrismaClientStatus }),

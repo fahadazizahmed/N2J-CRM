@@ -25,5 +25,6 @@ export function isValidABN(abn: string): boolean {
 
 export function isValidPhone(phone: string, countryCode: CountryCode): boolean {
     const parsed = parsePhoneNumberFromString(phone, countryCode);
+    console.log("parsed", parsed, "phone", phone, "countryCode", countryCode, "vvv", parsed.isValid())
     return parsed ? parsed.isValid() : false;
 }
