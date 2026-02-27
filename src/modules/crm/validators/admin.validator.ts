@@ -131,20 +131,20 @@ export const updateClientValidationRules = (): ValidationChain[] => [
         .notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('address')).bail()
         .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('address')),
 
-    // body('phone')
-    //     .optional()
-    //     .notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('phone')).bail()
-    //     .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('phone')).bail()
-    //     .custom((value, { req }) => {
-    //         const country = req.body.countryCode as CountryCode;
-    //         if (!country) throw new Error('countryCode is required when updating phone');
-    //         if (!isValidPhone(value, country)) throw new Error(`Invalid phone number for country ${country}`);
-    //         return true;
-    //     }),
+    body('phone')
+        .optional()
+        .notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('phone')).bail()
+        .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('phone')).bail()
+        .custom((value, { req }) => {
+            const country = req.body.countryCode as CountryCode;
+            if (!country) throw new Error('countryCode is required when updating phone');
+            if (!isValidPhone(value, country)) throw new Error(`Invalid phone number for country ${country}`);
+            return true;
+        }),
 
-    // body('countryCode')
-    //     .optional()
-    //     .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('countryCode')),
+    body('countryCode')
+        .optional()
+        .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('countryCode')),
 
     body('gstStatus')
         .optional()
