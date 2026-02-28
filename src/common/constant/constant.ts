@@ -32,6 +32,7 @@ const constant = {
   ENTITY_TYPE: {
     USER: 'User',
     CLIENT: 'Client',
+    TIP_COMPANY: 'TipCompany',
     JOB: 'Job',
     INVOICE: 'Invoice',
     VEHICLE: 'Vehicle',

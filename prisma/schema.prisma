@@ -35,6 +35,14 @@ enum ClientStatus {
   @@map("client_status")
 }
 
+enum TipStatus {
+  pending
+  active
+  suspended
+
+  @@map("tip_status")
+}
+
 // ─── Core Models ────
 
 model Role {
@@ -133,4 +141,23 @@ model Client {
 
   @@index([status])
   @@map("clients")
+}
+
+// ─── Tip Company ────
+
+model TipCompany {
+  id Int @id @default(autoincrement())
+
+  tip_name     String
+  abn          String?  @unique
+  address      String?
+  phone        String?
+  country_code String?
+
+  status TipStatus @default(pending)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("tip_companies")
 }

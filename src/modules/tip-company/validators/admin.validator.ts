@@ -3,24 +3,17 @@ import ErrorMessages from '../../../common/constant/errors';
 import constant from '../../../common/constant/constant';
 import { isValidABN, isValidPhone } from '../../../helper/helper.method';
 import { CountryCode } from 'libphonenumber-js';
-import { GSTStatus, CreditTerms, ClientStatus } from '../../../common/types/client.types';
-
-
-
+import { TipStatus } from '../../../common/types/tip-company.types';
 
 // ─── Create ───────────────────────────────────────────────────────────────────
-// user_id is NOT in body — it comes from the JWT token automatically
-export const createClientValidationRules = (): ValidationChain[] => [
+export const createTipCompanyValidationRules = (): ValidationChain[] => [
 
-
-    body('clientName')
-        .exists().withMessage(ErrorMessages.VALIDATION.KEY_MISSING('companyName')).bail()
-        .notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('companyName')).bail()
-        .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('companyName'))
+    body('tipName')
+        .exists().withMessage(ErrorMessages.VALIDATION.KEY_MISSING('tipName')).bail()
+        .notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('tipName')).bail()
+        .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('tipName'))
         .isLength({ min: constant.NAME.MIN_LENGTH, max: constant.NAME.MAX_LENGTH })
-        .withMessage(
-            ErrorMessages.AUTH.NAME_LENGTH_MAX(constant.NAME.MIN_LENGTH, constant.NAME.MAX_LENGTH)
-        ),
+        .withMessage(ErrorMessages.AUTH.NAME_LENGTH_MAX(constant.NAME.MIN_LENGTH, constant.NAME.MAX_LENGTH)),
 
     body('abn')
         .exists().withMessage(ErrorMessages.VALIDATION.KEY_MISSING('ABN')).bail()
@@ -49,6 +42,7 @@ export const createClientValidationRules = (): ValidationChain[] => [
         .bail()
         .custom((value, { req }) => {
             const country = req.body.countryCode as CountryCode;
+            console.log("coutnry", country)
 
             if (!country) {
                 throw new Error('Country code is required');
@@ -60,61 +54,23 @@ export const createClientValidationRules = (): ValidationChain[] => [
             return true;
         }),
 
-    body("email")
-        .exists()
-        .withMessage(ErrorMessages.VALIDATION.KEY_MISSING("email"))
-        .bail()
-        .not()
-        .isEmpty()
-        .withMessage(
-            ErrorMessages.VALIDATION.EMPTY_VALUE("email")
-        )
-        .bail()
-        .isString()
-        .withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING("email"))
-        .bail().custom((value) => validateEmail(value))
-        .withMessage(ErrorMessages.AUTH.INVALID_EMAIL),
-
-    body('gstStatus')
-        .exists()
-        .withMessage(ErrorMessages.VALIDATION.KEY_MISSING('gstStatus'))
-        .bail()
-        .custom((value) => GSTStatus.includes(value))
-        .withMessage(ErrorMessages.CLIENT.INVALID_GST_STATUS),
-
-    body('creditTerms')
-        .exists()
-        .withMessage(ErrorMessages.VALIDATION.KEY_MISSING('creditTerms'))
-        .bail()
-        .custom((value) => CreditTerms.includes(value))
-        .withMessage(ErrorMessages.CLIENT.INVALID_CREDIT_TERMS),
-
-
-    body('creditScore')
-        .optional()
-        .isInt({ min: constant.CREDIT_SCORE.MIN, max: constant.CREDIT_SCORE.MAX })
-        .withMessage(`Credit score must be between ${constant.CREDIT_SCORE.MIN} and ${constant.CREDIT_SCORE.MAX}`),
-
     body('status')
-        .exists()
-        .withMessage(ErrorMessages.VALIDATION.KEY_MISSING('status'))
-        .bail()
-        .custom((value) => ClientStatus.includes(value))
-        .withMessage(ErrorMessages.CLIENT.INVALID_CLIENT_STATUS),
+        .custom((value) => TipStatus.includes(value))
+        .withMessage(ErrorMessages.TIP_COMPANY.INVALID_STATUS),
 
 ];
 
 // ─── Update ───────────────────────────────────────────────────────────────────
-export const updateClientValidationRules = (): ValidationChain[] => [
+export const updateTipCompanyValidationRules = (): ValidationChain[] => [
 
     param('id')
-        .isInt({ min: 1 }).withMessage('Client id must be a positive integer')
+        .isInt({ min: 1 }).withMessage('Tip company id must be a positive integer')
         .toInt(),
 
-    body('clientName')
+    body('tipName')
         .optional()
-        .notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('clientName')).bail()
-        .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('clientName'))
+        .notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('tipName')).bail()
+        .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('tipName'))
         .isLength({ min: constant.NAME.MIN_LENGTH, max: constant.NAME.MAX_LENGTH })
         .withMessage(ErrorMessages.AUTH.NAME_LENGTH_MAX(constant.NAME.MIN_LENGTH, constant.NAME.MAX_LENGTH)),
 
@@ -146,49 +102,21 @@ export const updateClientValidationRules = (): ValidationChain[] => [
         .optional()
         .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('countryCode')),
 
-    body('gstStatus')
-        .optional()
-        .custom((value) => GSTStatus.includes(value))
-        .withMessage(ErrorMessages.CLIENT.INVALID_GST_STATUS),
-
-    body('creditTerms')
-        .optional()
-        .custom((value) => CreditTerms.includes(value))
-        .withMessage(ErrorMessages.CLIENT.INVALID_CREDIT_TERMS),
-
-    body('creditScore')
-        .optional()
-        .isInt({ min: constant.CREDIT_SCORE.MIN, max: constant.CREDIT_SCORE.MAX })
-        .withMessage(`Credit score must be between ${constant.CREDIT_SCORE.MIN} and ${constant.CREDIT_SCORE.MAX}`)
-        .toInt(),
-
     body('status')
         .optional()
-        .custom((value) => ClientStatus.includes(value))
-        .withMessage(ErrorMessages.CLIENT.INVALID_CLIENT_STATUS),
-
+        .custom((value) => TipStatus.includes(value))
+        .withMessage(ErrorMessages.TIP_COMPANY.INVALID_STATUS),
 ];
 
-// ─── Delete & Get By ID ────────────────────────────────────────────────────────
-export const deleteClientValidationRules = (): ValidationChain[] => [
-    param('id').isInt({ min: 1 }).withMessage('Client id must be a positive integer').toInt(),
-];
-
-export const getClientByIdValidationRules = (): ValidationChain[] => [
-    param('id').isInt({ min: 1 }).withMessage('Client id must be a positive integer').toInt(),
+// ─── Get By ID ────────────────────────────────────────────────────────────────
+export const getTipCompanyByIdValidationRules = (): ValidationChain[] => [
+    param('id').isInt({ min: 1 }).withMessage('Tip company id must be a positive integer').toInt(),
 ];
 
 // ─── Get (paginated) ──────────────────────────────────────────────────────────
-
-export const getClientsValidationRules = (): ValidationChain[] => [
+export const getTipCompaniesValidationRules = (): ValidationChain[] => [
     query('page').optional().isInt({ min: 1 }).withMessage('page must be a positive integer').toInt(),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('limit must be between 1 and 100').toInt(),
-    query('status').optional().custom((value) => ClientStatus.includes(value)).withMessage(ErrorMessages.CLIENT.INVALID_CLIENT_STATUS),
+    query('status').optional().custom((value) => TipStatus.includes(value)).withMessage(ErrorMessages.TIP_COMPANY.INVALID_STATUS),
     query('search').optional().isString().trim(),
 ];
-
-function validateEmail(email: string) {
-    const re =
-        /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
-    return re.test(String(email).toLowerCase())
-}

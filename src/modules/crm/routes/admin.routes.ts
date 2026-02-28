@@ -14,10 +14,8 @@ import constant from '../../../common/constant/constant';
 
 const router = express.Router();
 const controller = new AdminCrmController();
-const guard = [authentication, userPermissionGuard(['admin'])];
 
-
-
+// ─── Client Routes ────────────────────────────────────────────────────────────
 
 router.post(
     routes.Admin.ADD_CLIENT,
@@ -27,7 +25,7 @@ router.post(
     validateRequest,
     controller.createClient
 );
-
+// TODO: replace with patch
 router.post(
     routes.Admin.UPDATE_CLIENT,
     authentication,

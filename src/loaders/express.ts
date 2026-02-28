@@ -10,6 +10,7 @@ import { errorHandler } from '../middlewares';
 import config from '../config';
 import authRouter from '../modules/auth/routes';
 import crmRouter from '../modules/crm/routes';
+import tipRouter from '../modules/tip-company/routes';
 import cookieParser from "cookie-parser";
 
 export default ({ app }: { app: express.Application }) => {
@@ -75,7 +76,8 @@ export default ({ app }: { app: express.Application }) => {
 
   // Load all API routes
   app.use(config.api.prefix, authRouter);
-  app.use(config.api.prefix, crmRouter);           // → /api/v1/crm/...
+  app.use(config.api.prefix, crmRouter);
+  app.use(config.api.prefix, tipRouter);          // → /api/v1/crm/...
 
   app.all('*', async (req, res) => {
     throw new NotFoundError(null);

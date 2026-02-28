@@ -43,6 +43,13 @@ const ErrorMessages = {
     CLIENT_NOT_FOUND: 'Client not found',
   },
 
+  TIP_COMPANY: {
+    INVALID_STATUS: 'Invalid tip company status',
+    DUPLICATE_ABN: 'A tip company with this ABN already exists',
+    DUPLICATE_NAME: 'A tip company with this name already exists',
+    NOT_FOUND: 'Tip company not found',
+  },
+
 
 
 
