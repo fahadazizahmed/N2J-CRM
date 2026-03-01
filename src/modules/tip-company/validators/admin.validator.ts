@@ -3,10 +3,11 @@ import ErrorMessages from '../../../common/constant/errors';
 import constant from '../../../common/constant/constant';
 import { isValidABN, isValidPhone } from '../../../helper/helper.method';
 import { CountryCode } from 'libphonenumber-js';
-import { TipStatus } from '../../../common/types/tip-company.types';
+import { TipStatus } from '../../../../generated/prisma';
 
 // ─── Create ───────────────────────────────────────────────────────────────────
 export const createTipCompanyValidationRules = (): ValidationChain[] => [
+
 
     body('tipName')
         .exists().withMessage(ErrorMessages.VALIDATION.KEY_MISSING('tipName')).bail()
@@ -42,7 +43,6 @@ export const createTipCompanyValidationRules = (): ValidationChain[] => [
         .bail()
         .custom((value, { req }) => {
             const country = req.body.countryCode as CountryCode;
-            console.log("coutnry", country)
 
             if (!country) {
                 throw new Error('Country code is required');
@@ -55,7 +55,7 @@ export const createTipCompanyValidationRules = (): ValidationChain[] => [
         }),
 
     body('status')
-        .custom((value) => TipStatus.includes(value))
+        .custom((value) => Object.values(TipStatus).includes(value))
         .withMessage(ErrorMessages.TIP_COMPANY.INVALID_STATUS),
 
 ];
@@ -64,7 +64,7 @@ export const createTipCompanyValidationRules = (): ValidationChain[] => [
 export const updateTipCompanyValidationRules = (): ValidationChain[] => [
 
     param('id')
-        .isInt({ min: 1 }).withMessage('Tip company id must be a positive integer')
+        .isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID("Tip company"))
         .toInt(),
 
     body('tipName')
@@ -104,19 +104,19 @@ export const updateTipCompanyValidationRules = (): ValidationChain[] => [
 
     body('status')
         .optional()
-        .custom((value) => TipStatus.includes(value))
+        .custom((value) => Object.values(TipStatus).includes(value))
         .withMessage(ErrorMessages.TIP_COMPANY.INVALID_STATUS),
 ];
 
 // ─── Get By ID ────────────────────────────────────────────────────────────────
 export const getTipCompanyByIdValidationRules = (): ValidationChain[] => [
-    param('id').isInt({ min: 1 }).withMessage('Tip company id must be a positive integer').toInt(),
+    param('id').isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID("Tip company")).toInt(),
 ];
 
 // ─── Get (paginated) ──────────────────────────────────────────────────────────
 export const getTipCompaniesValidationRules = (): ValidationChain[] => [
-    query('page').optional().isInt({ min: 1 }).withMessage('page must be a positive integer').toInt(),
-    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('limit must be between 1 and 100').toInt(),
-    query('status').optional().custom((value) => TipStatus.includes(value)).withMessage(ErrorMessages.TIP_COMPANY.INVALID_STATUS),
+    query('page').optional().isInt({ min: 1 }).withMessage(ErrorMessages.PAGINATION.PAGE_MUST_BE_POSITIVE_NUMBER).toInt(),
+    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage(ErrorMessages.PAGINATION.LIMIT_MUST_BETWEEN_1_AND_100).toInt(),
+    query('status').optional().custom((value) => Object.values(TipStatus).includes(value)).withMessage(ErrorMessages.TIP_COMPANY.INVALID_STATUS),
     query('search').optional().isString().trim(),
 ];

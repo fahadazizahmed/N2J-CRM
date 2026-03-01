@@ -17,6 +17,26 @@ const InfoMessages = {
     LOGGED_IN_SUCCESSFULLY: "Logged in successfully.",
     LOGGED_OUT_SUCCESSFULLY: "Logged out successfully."
   },
+
+
+
+  LOGGER_MESSAGE: {
+    CONTRACT_GENERATE_INFOT_CREATED_SUCCESSFULLY: 'Contract generar info created successfully',
+    PASSWORD_RESET: "Password Reset",
+    PASSWORD_SET_AND_ACCOUNT_ACTIVATED: "Password Set and Account Activated",
+    PASSWORD_RESET_REQUESTED: "Password Reset Requested",
+    ROLE_SELECTED: "Role Selected",
+    CLIENT_CREATED_AND_INVITATION_SENT: "Client created and invitation sent",
+    TIP_COMPANY_CREATED: "Tip company created"
+
+
+  }
+
+
+
+
+
+
   //AUT_MODULE_ERROR
   //PROFILE_MODILE_ERRO
   //

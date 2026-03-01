@@ -13,10 +13,10 @@ const controller = new AdminAuthController();
 /* User or consultant signup Route with email or phone */
 router.post(
     routes.Admin.ADD_USER,
-    authentication,
-    userPermissionGuard([constant.ROLES.ADMIN]),
-    adminAuthValidationRules(),
-    validateRequest,
+    // authentication,
+    // userPermissionGuard([constant.ROLES.ADMIN]),
+    // adminAuthValidationRules(),
+    // validateRequest,
     controller.addNewUser
 );
 

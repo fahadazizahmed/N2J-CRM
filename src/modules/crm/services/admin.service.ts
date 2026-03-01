@@ -8,9 +8,11 @@ import constant from '../../../common/constant/constant';
 import config from '../../../config';
 import ErrorMessages from '../../../common/constant/errors';
 import { ICreateClientDTO, IUpdateClientDTO, IGetClientsQuery } from '../dto/client.dto';
-import { Client, ClientStatus as PrismaClientStatus, GstStatus, CreditTerms, Prisma } from '../../../../generated/prisma';
+import { Client, ClientStatus as PrismaClientStatus, GstStatus, CreditTerms, Prisma, SequenceEntity } from '../../../../generated/prisma';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
+import InfoMessages from '../../../common/constant/messages';
+import { generateEntityCode } from '../../../helper/helper.method';
 
 export interface IAdminCrmService {
     createClient(createClientDTO: ICreateClientDTO, actorId?: number | null): Promise<Client & { user: { id: number; email: string; name: string | null } }>;
@@ -24,26 +26,15 @@ export interface IAdminCrmService {
 }
 
 export default class AdminCrmService implements IAdminCrmService {
-
-    // ─── Create ──────────────────────────────────────────────────────────────
-    // NOTE: actorId comes from JWT token of the admin performing the action.
-    // We create a NEW User record for the client, then a Client record linked to it.
     public async createClient(
         createClientDTO: ICreateClientDTO,
         actorId?: number | null
     ): Promise<Client & { user: { id: number; email: string; name: string | null } }> {
         try {
+
             const { clientName, abn, address, phone, countryCode, gstStatus, creditTerms, creditScore, status } = createClientDTO;
 
-            console.log("createClientDTO", createClientDTO)
-
-
-            // Normalize email to lowercase — ensures "Fahad@gmail.com" and "fahad@gmail.com"
-            // are treated as the same address at every layer (DB check, storage, invite email).
             const email = createClientDTO.email.toLowerCase().trim();
-
-            // ── 1. Pre-flight uniqueness checks (outside transaction for clear errors) ──
-
             // Check for duplicate email
             const existingUser = await prisma.user.findUnique({
                 where: { email },
@@ -78,7 +69,7 @@ export default class AdminCrmService implements IAdminCrmService {
                 where: { name: constant.ROLES.CLIENT },
             });
             if (!clientRole) {
-                throw new UnProcessableEntityError('Client role not found in system. Please contact an administrator.');
+                throw new UnProcessableEntityError(ErrorMessages.GENERIC.ITEM_NOT_FOUND("Client role"));
             }
 
             // ── 3. Atomic transaction ──────────────────────────────────────────────────
@@ -119,11 +110,16 @@ export default class AdminCrmService implements IAdminCrmService {
                     where: { id: user.id },
                     data: { invite_token: hashedToken },
                 });
-
+                const clientCode = await generateEntityCode({
+                    tx,
+                    entity: SequenceEntity.CLIENT,
+                    prefix: constant.CODE_PREFIX.CLIENT,
+                });
                 // 3d. Create the Client record linked to this User
                 const client = await tx.client.create({
                     data: {
                         user_id: user.id,
+                        client_code: clientCode,
                         client_name: clientName,
                         abn: abn ?? null,
                         address: address ?? null,
@@ -164,7 +160,7 @@ export default class AdminCrmService implements IAdminCrmService {
                         client_name: clientName,
                         email,
                         abn,
-                        action: 'Client created and invitation sent',
+                        action: InfoMessages.LOGGER_MESSAGE.CLIENT_CREATED_AND_INVITATION_SENT
                     },
                 }),
             ]);
@@ -195,7 +191,7 @@ export default class AdminCrmService implements IAdminCrmService {
 
     // ─── Update ───────────────────────────────────────────────────────────────────
     public async updateClient(id: number, dto: IUpdateClientDTO, actorId?: number | null): Promise<Client & { user: { id: number; email: string; name: string | null } }> {
-        console.log("i am reache pot", dto)
+
         const { clientName, abn, address, phone, countryCode, gstStatus, creditTerms, creditScore, status } = dto;
 
         // ── 1. Confirm client exists ─────────────────────────────────────────────────
@@ -312,6 +308,7 @@ export default class AdminCrmService implements IAdminCrmService {
         if (query.search) {
             const search = query.search.trim();
             where.OR = [
+                { client_code: { contains: search, mode: 'insensitive' } },
                 { client_name: { contains: search, mode: 'insensitive' } },
                 { abn: { contains: search, mode: 'insensitive' } },
                 { address: { contains: search, mode: 'insensitive' } },

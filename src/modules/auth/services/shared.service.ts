@@ -11,6 +11,7 @@ import config from '../../../config';
 import { auditService } from '../../../services/audit.service';
 import { Response, Request } from 'express';
 import { emailService } from '../../../services/email.service';
+import InfoMessages from '../../../common/constant/messages';
 
 
 export interface ISharedAuthService {
@@ -84,7 +85,7 @@ export default class SharedAuthService implements ISharedAuthService {
 				entity_type: constant.ENTITY_TYPE.USER,
 				entity_id: result.user.id,
 				metadata: {
-					action: isForgot ? 'Password Reset' : 'Password Set and Account Activated',
+					action: isForgot ? InfoMessages.LOGGER_MESSAGE.PASSWORD_RESET : InfoMessages.LOGGER_MESSAGE.PASSWORD_SET_AND_ACCOUNT_ACTIVATED,
 					email: result.user.email
 				}
 			})
@@ -145,7 +146,7 @@ export default class SharedAuthService implements ISharedAuthService {
 				entity_type: constant.ENTITY_TYPE.USER,
 				entity_id: user.id,
 				metadata: {
-					action: 'Password Reset Requested',
+					action: InfoMessages.LOGGER_MESSAGE.PASSWORD_RESET_REQUESTED,
 					email: user.email
 				}
 			})
@@ -243,12 +244,8 @@ export default class SharedAuthService implements ISharedAuthService {
 
 
 	public async getCurrentUser(req: Request, res: Response): Promise<any> {
-		console.log("we herere");
-		console.log(req.cookies);
-
 
 		let userSession = (req as any).user;
-
 		let user = await prisma.user.findUnique({
 			where: { id: userSession.id },
 			include: { roles: true }
@@ -334,7 +331,6 @@ export default class SharedAuthService implements ISharedAuthService {
 			where: { id: userId },
 			include: { roles: true }
 		});
-		console.log("hhhh", user)
 
 		if (!user) {
 			throw new BadRequestError(ErrorMessages.AUTH.USER_NOT_FOUND);
@@ -366,7 +362,7 @@ export default class SharedAuthService implements ISharedAuthService {
 				action: constant.AUDIT_LOG_ACTION.UPDATE,
 				entity_type: constant.ENTITY_TYPE.USER,
 				entity_id: userId,
-				metadata: { action: 'Role Selected', role: roleObject.name }
+				metadata: { action: InfoMessages.LOGGER_MESSAGE.ROLE_SELECTED, role: roleObject.name }
 			})
 		]);
 

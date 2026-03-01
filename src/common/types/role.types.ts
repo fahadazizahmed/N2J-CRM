@@ -1,10 +1,7 @@
-export type UserRoleType = 'admin' | 'driver' | 'subcontractor' | 'client';
+import constant from '../constant/constant';
 
-export const UserRoles: UserRoleType[] = [
-    'admin',
-    'driver',
-    'subcontractor',
-    'client'
-];
+export type UserRoleType = typeof constant.ROLES[keyof typeof constant.ROLES];
+
+export const UserRoles: UserRoleType[] = Object.values(constant.ROLES);
 
 

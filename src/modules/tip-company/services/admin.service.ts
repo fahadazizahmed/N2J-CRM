@@ -5,7 +5,11 @@ import { auditService } from '../../../services/audit.service';
 import constant from '../../../common/constant/constant';
 import ErrorMessages from '../../../common/constant/errors';
 import { ICreateTipCompanyDTO, IUpdateTipCompanyDTO, IGetTipCompaniesQuery } from '../dto/tip-company.dto';
-import { TipCompany, TipStatus as PrismaTipStatus, Prisma } from '../../../../generated/prisma';
+import { TipCompany, TipStatus as PrismaTipStatus, Prisma, SequenceEntity } from '../../../../generated/prisma';
+import { ImageService } from '../../../services/image.service';
+import { generateEntityCode, normalizeBlobName } from '../../../helper/helper.method';
+import InfoMessages from '../../../common/constant/messages';
+
 
 export interface IAdminTipService {
     createTipCompany(dto: ICreateTipCompanyDTO, actorId?: number | null): Promise<TipCompany>;
@@ -15,9 +19,11 @@ export interface IAdminTipService {
         data: TipCompany[];
         pagination: { total: number; page: number; limit: number; hasNext: boolean; hasPrevious: boolean };
     }>;
+    uploadTipImage(file: any): Promise<any>;
 }
 
 export default class AdminTipService implements IAdminTipService {
+    private imageService = new ImageService();
 
     // ─── Create ──────────────────────────────────────────────────────────────
     public async createTipCompany(
@@ -26,6 +32,7 @@ export default class AdminTipService implements IAdminTipService {
     ): Promise<TipCompany> {
         try {
             const { tipName, abn, address, phone, countryCode, status } = dto;
+
 
             // ── 1. Duplicate ABN check ─────────────────────────────────────────────────
             if (abn) {
@@ -43,16 +50,25 @@ export default class AdminTipService implements IAdminTipService {
             });
             if (existingName) throw new BadRequestError(ErrorMessages.TIP_COMPANY.DUPLICATE_NAME);
 
-            // ── 3. Create ──────────────────────────────────────────────────────────────
-            const tipCompany = await prisma.tipCompany.create({
-                data: {
-                    tip_name: tipName,
-                    abn: abn,
-                    address: address ?? null,
-                    phone: phone ?? null,
-                    country_code: countryCode ?? null,
-                    status: status as PrismaTipStatus,
-                },
+            // ── 3. Create (atomic: generate code + insert in one transaction) ──────────
+            const tipCompany = await prisma.$transaction(async (tx) => {
+                const clientCode = await generateEntityCode({
+                    tx,
+                    entity: SequenceEntity.TIPPER,
+                    prefix: constant.CODE_PREFIX.TIP_COMPANY,
+                });
+
+                return tx.tipCompany.create({
+                    data: {
+                        tip_name: tipName,
+                        client_code: clientCode,
+                        abn: abn,
+                        address: address ?? null,
+                        phone: phone ?? null,
+                        country_code: countryCode ?? null,
+                        status: status as PrismaTipStatus,
+                    },
+                });
             });
 
             // ── 4. Fire-and-forget audit log ───────────────────────────────────────────
@@ -61,7 +77,7 @@ export default class AdminTipService implements IAdminTipService {
                 action: constant.AUDIT_LOG_ACTION.CREATE,
                 entity_type: constant.ENTITY_TYPE.TIP_COMPANY,
                 entity_id: tipCompany.id,
-                metadata: { tip_name: tipName, abn, action: 'Tip company created' },
+                metadata: { tip_name: tipName, abn, action: InfoMessages.LOGGER_MESSAGE.TIP_COMPANY_CREATED },
             });
 
             return tipCompany;
@@ -195,4 +211,14 @@ export default class AdminTipService implements IAdminTipService {
             pagination: { total, page, limit, hasNext, hasPrevious },
         };
     }
+
+    public async uploadTipImage(file: any): Promise<any> {
+        //file coming from api requrest
+        let getFile = await this.imageService.upload(file.path)
+        //File wil come from the db
+        let url = this.imageService.getImageUrl(normalizeBlobName(file.path));
+        return url
+
+    }
+
 }

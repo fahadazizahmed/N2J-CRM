@@ -1,6 +1,5 @@
 import { body } from 'express-validator';
 import ErrorMessages from '../../../common/constant/errors';
-import { UserRoles } from '../../../common/types/role.types';
 
 export const sharedAuthValidationRules = () => {
   return [
@@ -87,7 +86,7 @@ export const selectRoleValidationRules = () => {
       .bail()
       .notEmpty()
       .withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('roleId'))
-    
+
   ];
 };
 

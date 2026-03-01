@@ -3,7 +3,7 @@ import ErrorMessages from '../../../common/constant/errors';
 import constant from '../../../common/constant/constant';
 import { isValidABN, isValidPhone } from '../../../helper/helper.method';
 import { CountryCode } from 'libphonenumber-js';
-import { GSTStatus, CreditTerms, ClientStatus } from '../../../common/types/client.types';
+import { GstStatus, CreditTerms, ClientStatus } from '../../../../generated/prisma';
 
 
 
@@ -14,9 +14,9 @@ export const createClientValidationRules = (): ValidationChain[] => [
 
 
     body('clientName')
-        .exists().withMessage(ErrorMessages.VALIDATION.KEY_MISSING('companyName')).bail()
-        .notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('companyName')).bail()
-        .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('companyName'))
+        .exists().withMessage(ErrorMessages.VALIDATION.KEY_MISSING('clientName')).bail()
+        .notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('clientName')).bail()
+        .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('ciientName'))
         .isLength({ min: constant.NAME.MIN_LENGTH, max: constant.NAME.MAX_LENGTH })
         .withMessage(
             ErrorMessages.AUTH.NAME_LENGTH_MAX(constant.NAME.MIN_LENGTH, constant.NAME.MAX_LENGTH)
@@ -79,14 +79,14 @@ export const createClientValidationRules = (): ValidationChain[] => [
         .exists()
         .withMessage(ErrorMessages.VALIDATION.KEY_MISSING('gstStatus'))
         .bail()
-        .custom((value) => GSTStatus.includes(value))
+        .custom((value) => Object.values(GstStatus).includes(value))
         .withMessage(ErrorMessages.CLIENT.INVALID_GST_STATUS),
 
     body('creditTerms')
         .exists()
         .withMessage(ErrorMessages.VALIDATION.KEY_MISSING('creditTerms'))
         .bail()
-        .custom((value) => CreditTerms.includes(value))
+        .custom((value) => Object.values(CreditTerms).includes(value))
         .withMessage(ErrorMessages.CLIENT.INVALID_CREDIT_TERMS),
 
 
@@ -99,8 +99,11 @@ export const createClientValidationRules = (): ValidationChain[] => [
         .exists()
         .withMessage(ErrorMessages.VALIDATION.KEY_MISSING('status'))
         .bail()
-        .custom((value) => ClientStatus.includes(value))
+        .custom((value) => Object.values(ClientStatus).includes(value))
         .withMessage(ErrorMessages.CLIENT.INVALID_CLIENT_STATUS),
+
+
+
 
 ];
 
@@ -108,7 +111,7 @@ export const createClientValidationRules = (): ValidationChain[] => [
 export const updateClientValidationRules = (): ValidationChain[] => [
 
     param('id')
-        .isInt({ min: 1 }).withMessage('Client id must be a positive integer')
+        .isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID("client id"))
         .toInt(),
 
     body('clientName')
@@ -148,12 +151,12 @@ export const updateClientValidationRules = (): ValidationChain[] => [
 
     body('gstStatus')
         .optional()
-        .custom((value) => GSTStatus.includes(value))
+        .custom((value) => Object.values(GstStatus).includes(value))
         .withMessage(ErrorMessages.CLIENT.INVALID_GST_STATUS),
 
     body('creditTerms')
         .optional()
-        .custom((value) => CreditTerms.includes(value))
+        .custom((value) => Object.values(CreditTerms).includes(value))
         .withMessage(ErrorMessages.CLIENT.INVALID_CREDIT_TERMS),
 
     body('creditScore')
@@ -164,26 +167,26 @@ export const updateClientValidationRules = (): ValidationChain[] => [
 
     body('status')
         .optional()
-        .custom((value) => ClientStatus.includes(value))
+        .custom((value) => Object.values(ClientStatus).includes(value))
         .withMessage(ErrorMessages.CLIENT.INVALID_CLIENT_STATUS),
 
 ];
 
 // ─── Delete & Get By ID ────────────────────────────────────────────────────────
 export const deleteClientValidationRules = (): ValidationChain[] => [
-    param('id').isInt({ min: 1 }).withMessage('Client id must be a positive integer').toInt(),
+    param('id').isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID("Client id")).toInt(),
 ];
 
 export const getClientByIdValidationRules = (): ValidationChain[] => [
-    param('id').isInt({ min: 1 }).withMessage('Client id must be a positive integer').toInt(),
+    param('id').isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID("Client id")).toInt(),
 ];
 
 // ─── Get (paginated) ──────────────────────────────────────────────────────────
 
 export const getClientsValidationRules = (): ValidationChain[] => [
-    query('page').optional().isInt({ min: 1 }).withMessage('page must be a positive integer').toInt(),
-    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('limit must be between 1 and 100').toInt(),
-    query('status').optional().custom((value) => ClientStatus.includes(value)).withMessage(ErrorMessages.CLIENT.INVALID_CLIENT_STATUS),
+    query('page').optional().isInt({ min: 1 }).withMessage(ErrorMessages.PAGINATION.PAGE_MUST_BE_POSITIVE_NUMBER).toInt(),
+    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage(ErrorMessages.PAGINATION.LIMIT_MUST_BETWEEN_1_AND_100).toInt(),
+    query('status').optional().custom((value) => Object.values(ClientStatus).includes(value)).withMessage(ErrorMessages.CLIENT.INVALID_CLIENT_STATUS),
     query('search').optional().isString().trim(),
 ];
 

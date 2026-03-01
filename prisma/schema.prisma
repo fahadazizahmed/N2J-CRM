@@ -43,6 +43,35 @@ enum TipStatus {
   @@map("tip_status")
 }
 
+enum ContractStatus {
+  draft
+  active
+  suspended
+  expired
+  cancelled
+
+  @@map("contract_status")
+}
+
+enum BillingType {
+  per_tonne
+  per_load
+  hourly
+  fixed
+}
+
+enum TollHandling {
+  included
+  pass_through
+}
+
+enum SequenceEntity {
+  CLIENT
+  CONTRACT
+  INVOICE
+  TIPPER
+}
+
 // ─── Core Models ────
 
 model Role {
@@ -54,19 +83,22 @@ model Role {
 }
 
 model User {
-  id            Int           @id @default(autoincrement())
-  name          String?
-  email         String        @unique
-  password_hash String
-  roles         Role[]
-  active_role   String?
-  status        Int      @default(1) // 0: inactive, 1: active
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
-  invite_token  String?
-  audit_logs    AuditLog[]
-  sessions      UserSession[]
-  clients       Client[] // primary contact for clients
+  id                Int              @id @default(autoincrement())
+  name              String?
+  email             String           @unique
+  password_hash     String
+  roles             Role[]
+  active_role       String?
+  status            Int              @default(1) // 0: inactive, 1: active
+  created_at        DateTime         @default(now())
+  updated_at        DateTime         @updatedAt
+  invite_token      String?
+  audit_logs        AuditLog[]
+  sessions          UserSession[]
+  clients           Client[] // primary contact for clients
+   // ─── Contract Relations ───
+  managed_contracts ClientContract[] @relation("ContractManager")
+  created_contracts ClientContract[] @relation("ContractCreator")
 
   @@map("users")
 }
@@ -119,16 +151,16 @@ model FailedOperation {
 
 model Client {
   id Int @id @default(autoincrement())
-
+  client_code   String @unique
   // Primary contact user (the User row created for this client)
-  user_id    Int  @unique  // 1-to-1: each client has exactly one user account
-  user       User @relation(fields: [user_id], references: [id], onDelete: Restrict)
+  user_id Int  @unique // 1-to-1: each client has exactly one user account
+  user    User @relation(fields: [user_id], references: [id], onDelete: Restrict)
 
-  client_name  String        // mirrors User.name — the client's business / display name
-  abn          String?       @unique
+  client_name  String // mirrors User.name — the client's business / display name
+  abn          String? @unique
   address      String?
   phone        String?
-  country_code String?       // e.g. "AU", "US" — used for phone validation
+  country_code String? // e.g. "AU", "US" — used for phone validation
 
   // Financial settings
   gst_status   GstStatus   @default(pending)
@@ -139,6 +171,8 @@ model Client {
   created_at DateTime     @default(now())
   updated_at DateTime     @updatedAt
 
+  contracts ClientContract[]
+
   @@index([status])
   @@map("clients")
 }
@@ -147,9 +181,9 @@ model Client {
 
 model TipCompany {
   id Int @id @default(autoincrement())
-
+  client_code   String @unique
   tip_name     String
-  abn          String?  @unique
+  abn          String? @unique
   address      String?
   phone        String?
   country_code String?
@@ -160,4 +194,80 @@ model TipCompany {
   updated_at DateTime @updatedAt
 
   @@map("tip_companies")
+}
+
+// ─── Client Contract ────
+
+model ClientContract {
+  id Int @id @default(autoincrement())
+
+  // ─── Client Relation ───
+  client_id Int
+  client    Client @relation(fields: [client_id], references: [id], onDelete: Restrict)
+
+  // ─── Identity ───
+  contract_number String  @unique
+  contract_title  String?
+
+  // ─── Lifecycle ───
+  start_date DateTime
+  end_date   DateTime
+  status     ContractStatus @default(draft)
+
+  // ─── Financial Override ───
+  credit_terms_override CreditTerms?
+
+  // ─── Documents / Notes ───
+  contract_document_path String?
+  special_terms          String?
+  rates ClientContractRate[]
+  // ─── Internal Management ───
+  contract_manager_id Int?
+  contract_manager    User? @relation("ContractManager", fields: [contract_manager_id], references: [id], onDelete: SetNull)
+
+  // ─── Audit Tracking ───
+  created_by Int
+  creator    User @relation("ContractCreator", fields: [created_by], references: [id], onDelete: Restrict)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([client_id])
+  @@index([status])
+  @@map("client_contracts")
+}
+
+
+model ClientContractRate {
+  id Int @id @default(autoincrement())
+
+  // ─── Relation ───
+  contract_id Int
+  contract    ClientContract @relation(fields: [contract_id], references: [id], onDelete: Cascade)
+
+  // ─── Billing Logic ───
+  billing_type   BillingType
+  material_type  String?        // optional (future expansion)
+  rate           Float
+  minimum_charge Float?
+  toll_handling  TollHandling @default(included)
+
+  // ─── Version Control ───
+  effective_from DateTime
+  effective_to   DateTime?
+
+  created_at DateTime @default(now())
+
+  @@index([contract_id, effective_from])
+  @@map("client_contract_rates")
+}
+
+
+model EntitySequence {
+  id       Int             @id @default(autoincrement())
+  entity   SequenceEntity
+  year     Int
+  last_no  Int
+
+  @@unique([entity, year], name: "entity_year")
 }

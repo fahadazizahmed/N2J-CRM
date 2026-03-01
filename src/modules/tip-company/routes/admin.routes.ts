@@ -12,6 +12,7 @@ import {
 import { authentication } from '../../../middlewares/authentication';
 import { userPermissionGuard } from '../../../middlewares/user-permission-guard';
 import constant from '../../../common/constant/constant';
+import { uploadBanner } from '../helper/helper';
 
 const router = express.Router();
 const controller = new AdminTipController();
@@ -52,6 +53,14 @@ router.get(
     getTipCompaniesValidationRules(),
     validateRequest,
     controller.getTipCompanies
+);
+
+router.post(
+    routes.Admin.UPLOAD_TIP_DOCS,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    uploadBanner,
+    controller.getImage
 );
 
 

@@ -1,3 +1,5 @@
+
+
 const constant = {
   JWT_TOKEN_TYPE: {
     INVITE: 'invite',
@@ -36,7 +38,8 @@ const constant = {
     JOB: 'Job',
     INVOICE: 'Invoice',
     VEHICLE: 'Vehicle',
-    EMAIL: 'Email'
+    EMAIL: 'Email',
+    CONTRACT: 'Contract'
   },
   ROLES: {
     ADMIN: 'admin',
@@ -47,6 +50,15 @@ const constant = {
   PAGINATION: {
     DEFAULT_PAGE: 1,
     DEFAULT_LIMIT: 10,
+  },
+  CODE_PREFIX: {
+    CLIENT: 'NJA-CL',
+    TIP_COMPANY: 'NJA-TC',
+    JOB: 'NJA-JB',
+    INVOICE: 'NJA-INV',
+    VEHICLE: 'NJA-VH',
+    EMAIL: 'NJA-EM',
+    CONTRACT: 'NJA-CT'
   }
 };
 export default constant;

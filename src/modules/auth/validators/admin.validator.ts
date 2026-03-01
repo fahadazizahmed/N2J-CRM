@@ -2,7 +2,6 @@
 import { body } from 'express-validator';
 import constant from '../../../common/constant/constant';
 import ErrorMessages from '../../../common/constant/errors';
-import { UserRoles } from '../../../common/types/role.types';
 
 
 export const adminAuthValidationRules = (): any[] => {
@@ -48,8 +47,8 @@ export const adminAuthValidationRules = (): any[] => {
 };
 
 
-export const validateRoles = (role: String) => {
-    return UserRoles.find((x: string) => x === role) ? true : false;
+export const validateRoles = (role: string) => {
+    return Object.values(constant.ROLES).includes(role as any);
 };
 function validateEmail(email: string) {
     const re =

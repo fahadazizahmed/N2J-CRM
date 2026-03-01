@@ -42,4 +42,12 @@ export default class AdminCrmController {
         } catch (e: any) { throw new GenericError(e, `Error in getTipCompanies ${__filename}`); }
     };
 
+
+    getImage = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const result = await this.adminTipService.uploadTipImage(req.file as any);
+            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_GET_SUCCESSFULLY('Tip Companies'), 200, result);
+        } catch (e: any) { throw new GenericError(e, `Error in getTipCompanies ${__filename}`); }
+    };
+
 }
