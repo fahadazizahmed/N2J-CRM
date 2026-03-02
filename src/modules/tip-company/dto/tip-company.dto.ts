@@ -1,4 +1,4 @@
-import { TipStatusType } from '../../../common/types/tip-company.types';
+import { TipStatus } from '../../../../generated/prisma';
 
 // ─── Create ───────────────────────────────────────────────────────────────────
 export interface ICreateTipCompanyDTO {
@@ -7,7 +7,7 @@ export interface ICreateTipCompanyDTO {
     address?: string;            // → TipCompany.address
     phone?: string;              // → TipCompany.phone
     countryCode?: string;        // → TipCompany.country_code
-    status: TipStatusType;       // → TipCompany.status
+    status: TipStatus;       // → TipCompany.status
 }
 
 // ─── Update ───────────────────────────────────────────────────────────────────
@@ -17,13 +17,13 @@ export interface IUpdateTipCompanyDTO {
     address?: string;
     phone?: string;
     countryCode?: string;
-    status?: TipStatusType;
+    status?: TipStatus;
 }
 
 // ─── Query (paginated list) ───────────────────────────────────────────────────
 export interface IGetTipCompaniesQuery {
     page?: number;
     limit?: number;
-    status?: TipStatusType;
+    status?: TipStatus;
     search?: string;
 }

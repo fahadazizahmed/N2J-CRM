@@ -22,6 +22,7 @@ const InfoMessages = {
 
   LOGGER_MESSAGE: {
     CONTRACT_GENERATE_INFOT_CREATED_SUCCESSFULLY: 'Contract generar info created successfully',
+    CONTRACT_GENERATE_INFOT_UPDATED_SUCCESSFULLY: 'Contract general info updated successfully',
     PASSWORD_RESET: "Password Reset",
     PASSWORD_SET_AND_ACCOUNT_ACTIVATED: "Password Set and Account Activated",
     PASSWORD_RESET_REQUESTED: "Password Reset Requested",

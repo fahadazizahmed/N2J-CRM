@@ -8,7 +8,7 @@ import fs from "fs";
 import { normalizeBlobName } from "../helper/helper.method";
 
 export interface IImageService {
-    upload: (image: string, userID: any, folderName: string) => Promise<string>
+    upload: (fileName: string, customBlobName?: string) => Promise<any>
 
 }
 
@@ -18,12 +18,13 @@ export class ImageService implements IImageService {
     accountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY;
     containerName = process.env.AZURE_STORAGE_CONTAINER;
 
-    upload = async (fileName: string): Promise<any> => {
+    upload = async (fileName: string, customBlobName?: string): Promise<any> => {
         try {
 
-            const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.AZURE_STORAGE_CONNECTION_STRING);
-            const containerClient = blobServiceClient.getContainerClient(this.containerName);
-            const blockBlobClient = containerClient.getBlockBlobClient(normalizeBlobName(fileName));
+            const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.AZURE_STORAGE_CONNECTION_STRING as string);
+            const containerClient = blobServiceClient.getContainerClient(this.containerName as string);
+            const blobName = customBlobName || normalizeBlobName(fileName);
+            const blockBlobClient = containerClient.getBlockBlobClient(blobName);
             let response = await blockBlobClient.uploadFile(fileName);
             this.cleanupTempFile(fileName);
             return response

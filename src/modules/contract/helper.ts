@@ -1,4 +1,6 @@
 import { Prisma } from '@prisma/client';
+import { diskStorage } from '../../middlewares/upload/storage';
+import { createUploader } from '../../middlewares/upload/multer.factory';
 
 export async function generateContractNumber(
     tx: Prisma.TransactionClient
@@ -34,5 +36,29 @@ export async function generateContractNumber(
 
     return `${prefix}-${year}-${sequence}`;
 }
+
+
+
+const createDocUploader = (folder: string) =>
+    createUploader({
+        storage: diskStorage(folder),
+        allowedMimeTypes: [
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "image/png",
+            "image/jpg",
+            "image/jpeg",
+        ],
+        fileSize: 10 * 1024 * 1024, // 10MB
+    });
+
+export const uploadContractDocs = createDocUploader("contracts/docs").single("docs");
+
+
+
+
+
+
 
 

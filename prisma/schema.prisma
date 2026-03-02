@@ -206,8 +206,11 @@ model ClientContract {
   client    Client @relation(fields: [client_id], references: [id], onDelete: Restrict)
 
   // ─── Identity ───
-  contract_number String  @unique
-  contract_title  String?
+  contract_number        String  @unique
+  contract_title         String?
+  contract_contact_name  String?
+  contract_contact_email String?
+  contract_contact_phone String?
 
   // ─── Lifecycle ───
   start_date DateTime
@@ -218,9 +221,10 @@ model ClientContract {
   credit_terms_override CreditTerms?
 
   // ─── Documents / Notes ───
-  contract_document_path String?
-  special_terms          String?
-  rates ClientContractRate[]
+  documents      ClientContractDocument[]
+  special_terms  String?
+  rates          ClientContractRate[]
+  
   // ─── Internal Management ───
   contract_manager_id Int?
   contract_manager    User? @relation("ContractManager", fields: [contract_manager_id], references: [id], onDelete: SetNull)
@@ -235,6 +239,23 @@ model ClientContract {
   @@index([client_id])
   @@index([status])
   @@map("client_contracts")
+}
+
+model ClientContractDocument {
+  id Int @id @default(autoincrement())
+
+  // ─── Relation ───
+  contract_id Int
+  contract    ClientContract @relation(fields: [contract_id], references: [id], onDelete: Cascade)
+
+  // ─── Document Details ───
+  document_path String
+  file_name     String?
+
+  created_at DateTime @default(now())
+
+  @@index([contract_id])
+  @@map("client_contract_documents")
 }
 
 
