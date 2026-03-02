@@ -221,7 +221,7 @@ export default class AdminContractService implements IAdminContractService {
         const customBlobName = `contract/${client.client_code}/${existingContract.contract_number}/docs/${file.filename}`;
 
         // File url to return
-        await this.imageService.getImageUrl(customBlobName);
+        this.imageService.upload(file.path, customBlobName);
 
         // Store the document path in the new ClientContractDocument table
         const document = await prisma.clientContractDocument.create({
