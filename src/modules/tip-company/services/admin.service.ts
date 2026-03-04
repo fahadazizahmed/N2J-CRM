@@ -106,7 +106,7 @@ export default class AdminTipService implements IAdminTipService {
             select: { id: true, abn: true, tip_name: true },
         });
         if (!existing) throw new NotFoundError(ErrorMessages.TIP_COMPANY.NOT_FOUND);
-        console.log("existing.abn", existing.abn, abn)
+
         // ── 2. Pre-flight uniqueness guards ───────────────────────────────────────────
         if (abn && abn !== existing.abn) {
             const abnConflict = await prisma.tipCompany.findUnique({

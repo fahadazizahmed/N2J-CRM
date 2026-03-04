@@ -14,6 +14,7 @@ const constant = {
   CREDIT_SCORE: {
     MIN: 0,
     MAX: 100,
+    THRESHOLD: 50, // Minimum credit score required to activate a contract
   },
   // ACCESS_TOKEN_COOKIES_EXPIRY: 15 * 60 * 1000,//15 min
   // REFRESH_TOKEN_COOKIES_EXPIRY: 30 * 24 * 60 * 60 * 1000, // 30 days
@@ -39,7 +40,8 @@ const constant = {
     INVOICE: 'Invoice',
     VEHICLE: 'Vehicle',
     EMAIL: 'Email',
-    CONTRACT: 'Contract'
+    CONTRACT: 'Contract',
+    CONTRCT_RATE:"ContractRate"
   },
   ROLES: {
     ADMIN: 'admin',

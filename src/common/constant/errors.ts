@@ -44,6 +44,9 @@ const ErrorMessages = {
     DUPLICATE_CLIENT_NAME: 'A client with this name already exists',
     CLIENT_NOT_FOUND: 'Client not found',
     CLIENT_NOT_ACTIVE: 'Client is not active. Contracts can only be created for active clients',
+    CLIENT_GST_NOT_APPROVED: 'Client GST is not approved. Contract status cannot be updated',
+    CLIENT_CREDIT_SCORE_BELOW_THRESHOLD: (score: number, threshold: number) =>
+      `Client credit score (${score}) is below the required threshold (${threshold}). Contract status cannot be updated`,
   },
 
   TIP_COMPANY: {
@@ -58,7 +61,19 @@ const ErrorMessages = {
     INVALID_DATES: 'start_date must be before end_date',
     INVALID_CONTRACT_MANAGER: 'The specified contract manager must be an admin',
     CONTRACT_MANAGER_NOT_ACTIVE: "Contract manager is no more active",
-    INVALID_DATE: (date: string) => `${date} must be a valid ISO8601 date`
+    INVALID_DATE: (date: string) => `${date} must be a valid ISO8601 date`,
+    DRAFT_ONLY_FIELDS: 'startDate, endDate, creditTermsOverride and specialTerms can only be edited on draft contracts',
+  },
+  CONTRACT_RATE: {
+    RATE_NOT_FOUND: 'Contract rate not found',
+    NO_RATES: 'Contract must have at least one rate before it can be activated',
+    EFFECTIVE_FROM_BEFORE_CONTRACT_START: 'effectiveFrom cannot be before the contract start date',
+    OVERLAP: 'The new rate period overlaps with an existing rate period',
+    NO_ACTIVE_RATE_ON_DATE: (date: string) => `No active rate found covering date ${date}`,
+    RATE_CHANGE_NOT_ALLOWED_ON_DRAFT: 'Use POST /rates to add rates on a draft contract. Rate change (versioning) is only for active contracts',
+    DRAFT_NOT_EDITABLE_AFTER_ACTIVATE: 'This rate period cannot be added — contract is already active. Use the rate-change endpoint to add a new versioned rate',
+    CANNOT_DELETE_ACTIVE_RATE: 'Cannot delete a rate that is currently active. Close it first by adding a new rate',
+    EFFECTIVE_FROM_MUST_BE_FUTURE: 'effectiveFrom must be in the future or today for an active contract',
   },
   PAGINATION: {
 

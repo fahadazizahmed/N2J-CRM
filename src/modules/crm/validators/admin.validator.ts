@@ -5,9 +5,6 @@ import { isValidABN, isValidPhone } from '../../../helper/helper.method';
 import { CountryCode } from 'libphonenumber-js';
 import { GstStatus, CreditTerms, ClientStatus } from '../../../../generated/prisma';
 
-
-
-
 // ─── Create ───────────────────────────────────────────────────────────────────
 // user_id is NOT in body — it comes from the JWT token automatically
 export const createClientValidationRules = (): ValidationChain[] => [

@@ -2,9 +2,16 @@ export default {
   Admin: {
     ADD_CONTRACT_GENERAL_INFO: '/contract/add-contract-general-info',
     UPDATE_CONTRACT_GENERAL_INFO: '/contract/update-contract-general-info/:id',
+    UPDATE_CONTRACT_STATUS: '/contract/update-contract-status/:id',
     UPLOAD_CONTRACT_DOCS: '/contract/upload-contract-docs',
-    UPDATE_CLIENT: '/crm/update-client/:id',
-    GET_CLIENT: '/crm/get-client/:id',
-    GET_CLIENTS: '/crm/get-clients',
+    GET_CONTRACT: '/contract/get-contract/:id',
+    GET_CONTRACTS: '/contract/get-contracts',
+    // ─ Rate Management ─────────────────────────────────────────────
+    ADD_CONTRACT_RATE: '/contract/add-rates/:id',          // POST  — draft only
+    UPDATE_DRAFT_CONTRACT_RATE: '/contract/update-draft-contract-rate/:id/:rateId',
+    CHANGE_CONTRACT_RATE: '/contract/change-active-contract-rate/:id',   // PUT   — active/suspended
+
+    GET_CONTRACT_RATES: '/contract/:id/rates',          // GET
+    DELETE_CONTRACT_RATE: '/contract/:id/rates/:rateId',  // DELETE — draft only
   },
 };

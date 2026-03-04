@@ -28,7 +28,7 @@ router.post(
     controller.createTipCompany
 );
 // TODO:Make it patch later
-router.post(
+router.put(
     routes.Admin.UPDATE_TIP_COMPANY,
     authentication,
     userPermissionGuard([constant.ROLES.ADMIN]),

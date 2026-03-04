@@ -20,7 +20,8 @@ export interface IAdminCrmService {
     getClientById(id: number): Promise<Client & { user: { id: number; email: string; name: string | null } }>;
     getClients(query: IGetClientsQuery): Promise<{
         data: (Client & { user: { id: number; email: string; name: string | null } })[],
-        pagination: { total: number; page: number; limit: number; hasNext: boolean; hasPrevious: boolean }
+        pagination: { total: number; page: number; limit: number; hasNext: boolean; hasPrevious: boolean },
+        totalPending: number
     }>;
 
 }
@@ -292,7 +293,8 @@ export default class AdminCrmService implements IAdminCrmService {
     // ─── Get with Pagination ─────────────────────────────────────────────────
     public async getClients(query: IGetClientsQuery): Promise<{
         data: (Client & { user: { id: number; email: string; name: string | null } })[],
-        pagination: { total: number; page: number; limit: number; hasNext: boolean; hasPrevious: boolean }
+        pagination: { total: number; page: number; limit: number; hasNext: boolean; hasPrevious: boolean },
+        totalPending: number
     }> {
 
         const page = query.page ?? constant.PAGINATION.DEFAULT_PAGE;
@@ -316,7 +318,7 @@ export default class AdminCrmService implements IAdminCrmService {
             ];
         }
 
-        const [data, total] = await prisma.$transaction([
+        const [data, total, totalPending] = await prisma.$transaction([
             prisma.client.findMany({
                 where,
                 skip,
@@ -327,6 +329,7 @@ export default class AdminCrmService implements IAdminCrmService {
                 },
             }),
             prisma.client.count({ where }),
+            prisma.client.count({ where: { status: PrismaClientStatus.pending } }),
         ]);
 
         const hasNext = (skip + data.length) < total;
@@ -335,6 +338,7 @@ export default class AdminCrmService implements IAdminCrmService {
         return {
             data,
             pagination: { total, page, limit, hasNext, hasPrevious },
+            totalPending,
         };
     }
 

@@ -7,7 +7,6 @@ export const diskStorage = (folderPath: string) => {
     return multer.diskStorage({
         destination: async (req, file, cb) => {
             const uploadDir = `./uploads/${folderPath}`;
-            console.log("uploadDir", uploadDir)
             if (!fs.existsSync(uploadDir)) {
                 fs.mkdirSync(uploadDir, { recursive: true });
             }

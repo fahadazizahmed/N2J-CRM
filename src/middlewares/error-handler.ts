@@ -9,12 +9,8 @@ export const errorHandler: ErrorRequestHandler = (
   res: Response,
   next: NextFunction
 ): void => {
-  console.log("errorHandler come isideeee", err)
-
-
   // 🧹 CLEAN UP FILES FIRST
   if (req.file) {
-    console.log("We have file")
     deleteFile(req.file.path);
   }
 
@@ -29,7 +25,6 @@ export const errorHandler: ErrorRequestHandler = (
     return;
   }
   if (err instanceof multer.MulterError) {
-    console.log("multer error")
     res.status(400).send({ errors: [{ message: err.message }] });
     return;
   }

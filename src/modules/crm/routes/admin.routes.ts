@@ -26,7 +26,7 @@ router.post(
     controller.createClient
 );
 // TODO: replace with patch
-router.post(
+router.put(
     routes.Admin.UPDATE_CLIENT,
     authentication,
     userPermissionGuard([constant.ROLES.ADMIN]),

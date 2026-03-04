@@ -15,6 +15,7 @@ enum GstStatus {
   approved
   notApproved
 
+
   @@map("gst_status")
 }
 
@@ -23,6 +24,7 @@ enum CreditTerms {
   net_14
   net_30
   net_60
+  cod
 
   @@map("credit_terms")
 }

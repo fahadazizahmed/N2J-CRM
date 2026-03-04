@@ -6,7 +6,7 @@ export const userPermissionGuard = (permittedRoles: UserRoleType[]) => {
     return async (req: Request, res: Response, next: NextFunction) => {
         try {
             const user = (req as any).user;
-            console.log("user", user)
+
 
             if (!user.active_role) {
                 throw new ForbiddenError("No active role set for this session");
