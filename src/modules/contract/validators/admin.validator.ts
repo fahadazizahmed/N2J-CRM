@@ -188,9 +188,15 @@ const rateBodyRules = (): ValidationChain[] => [
 
     body('minimumCharge')
         .optional()
-        .isFloat({ min: 0 }).withMessage('minimumCharge must be a non-negative number')
-        .toFloat(),
-
+        .isFloat({ min: 0 })
+        .withMessage('minimumCharge must be a non-negative number')
+        .toFloat()
+        .custom((value, { req }) => {
+            if (value != null && req.body.rate != null && value > req.body.rate) {
+                throw new Error('minimumCharge cannot be greater than rate');
+            }
+            return true;
+        }),
     body('tollHandling')
         .optional()
         .custom((v) => Object.values(TollHandling).includes(v))

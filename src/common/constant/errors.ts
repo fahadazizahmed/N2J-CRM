@@ -68,12 +68,14 @@ const ErrorMessages = {
     RATE_NOT_FOUND: 'Contract rate not found',
     NO_RATES: 'Contract must have at least one rate before it can be activated',
     EFFECTIVE_FROM_BEFORE_CONTRACT_START: 'effectiveFrom cannot be before the contract start date',
+    EFFECTIVE_FROM_AFTER_CONTRACT_END:'effectiveFrom cannot be after the contract end date',
     OVERLAP: 'The new rate period overlaps with an existing rate period',
     NO_ACTIVE_RATE_ON_DATE: (date: string) => `No active rate found covering date ${date}`,
     RATE_CHANGE_NOT_ALLOWED_ON_DRAFT: 'Use POST /rates to add rates on a draft contract. Rate change (versioning) is only for active contracts',
     DRAFT_NOT_EDITABLE_AFTER_ACTIVATE: 'This rate period cannot be added — contract is already active. Use the rate-change endpoint to add a new versioned rate',
     CANNOT_DELETE_ACTIVE_RATE: 'Cannot delete a rate that is currently active. Close it first by adding a new rate',
     EFFECTIVE_FROM_MUST_BE_FUTURE: 'effectiveFrom must be in the future or today for an active contract',
+    NO_ACTIVE_RATE_ON_CONTRACT_START: 'No active rate found on contract start date',
   },
   PAGINATION: {
 

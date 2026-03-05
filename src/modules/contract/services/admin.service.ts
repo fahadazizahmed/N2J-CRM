@@ -261,16 +261,19 @@ export default class AdminContractService implements IAdminContractService {
                 status: true,
                 contract_number: true,
                 client_id: true,
+                start_date: true,
                 client: {
                     select: {
                         id: true,
                         status: true,
                         gst_status: true,
                         credit_score: true,
+
                     },
                 },
             },
         });
+        console.log("existing", existing)
 
         if (!existing) {
             throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Contract'));
@@ -308,8 +311,11 @@ export default class AdminContractService implements IAdminContractService {
             if (rateCount === 0) {
                 throw new BadRequestError(ErrorMessages.CONTRACT_RATE.NO_RATES);
             }
+
+
+
         }
-        // 5. Update status only
+        //  5. Update status only
         const updated = await prisma.clientContract.update({
             where: { id },
             data: { status: dto.status },
@@ -518,12 +524,17 @@ export default class AdminContractService implements IAdminContractService {
 
         const effectiveFrom = this.toDateOnly(new Date(dto.effectiveFrom));
         const contractStart = this.toDateOnly(contract.start_date);
+        const contractEnd = contract.end_date ? this.toDateOnly(contract.end_date) : null;
 
         // 3. effectiveFrom must not be before contract start_date
         if (effectiveFrom < contractStart) {
             throw new BadRequestError(ErrorMessages.CONTRACT_RATE.EFFECTIVE_FROM_BEFORE_CONTRACT_START);
         }
-
+        if (contractEnd && effectiveFrom > contractEnd) {
+            throw new BadRequestError(
+                ErrorMessages.CONTRACT_RATE.EFFECTIVE_FROM_AFTER_CONTRACT_END
+            );
+        }
         // 4. Overlap check — no other rate on this contract can cover effectiveFrom
         await this.assertNoOverlap(contractId, effectiveFrom, null, null);
 
@@ -554,7 +565,7 @@ export default class AdminContractService implements IAdminContractService {
     }
 
 
-public async updateDraftContract(
+    public async updateDraftContract(
         contractId: number,
         rateId: number,
         dto: IUpdateContractRateDTO,
@@ -564,7 +575,7 @@ public async updateDraftContract(
         // 1. Fetch contract
         const contract = await prisma.clientContract.findUnique({
             where: { id: contractId },
-            select: { id: true, status: true, start_date: true },
+            select: { id: true, status: true, start_date: true, end_date: true },
         });
 
         if (!contract) {
@@ -590,6 +601,7 @@ public async updateDraftContract(
 
         const effectiveFrom = this.toDateOnly(new Date(dto.effectiveFrom));
         const contractStart = this.toDateOnly(contract.start_date);
+        const contractEnd = contract.end_date ? this.toDateOnly(contract.end_date) : null;
 
         // 4. Validate effective_from
         if (effectiveFrom < contractStart) {
@@ -597,6 +609,12 @@ public async updateDraftContract(
                 ErrorMessages.CONTRACT_RATE.EFFECTIVE_FROM_BEFORE_CONTRACT_START
             );
         }
+        if (contractEnd && effectiveFrom > contractEnd) {
+            throw new BadRequestError(
+                ErrorMessages.CONTRACT_RATE.EFFECTIVE_FROM_AFTER_CONTRACT_END
+            );
+        }
+
 
         // normalize effectiveTo
         const effectiveTo = dto.effectiveTo
@@ -649,12 +667,6 @@ public async updateDraftContract(
         return updatedRate;
     }
 
-
-
-
-
-
-
     public async changeRate(
         contractId: number,
         dto: IChangeContractRateDTO,
@@ -663,7 +675,7 @@ public async updateDraftContract(
         // 1. Fetch contract
         const contract = await prisma.clientContract.findUnique({
             where: { id: contractId },
-            select: { id: true, status: true, start_date: true },
+            select: { id: true, status: true, start_date: true, end_date: true },
         });
 
         if (!contract) throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Contract'));
@@ -675,11 +687,18 @@ public async updateDraftContract(
 
         const effectiveFrom = this.toDateOnly(new Date(dto.effectiveFrom));
         const contractStart = this.toDateOnly(contract.start_date);
+        const contractEnd = contract.end_date ? this.toDateOnly(contract.end_date) : null;
 
         // 3. effectiveFrom must not be before contract start_date
         if (effectiveFrom < contractStart) {
             throw new BadRequestError(ErrorMessages.CONTRACT_RATE.EFFECTIVE_FROM_BEFORE_CONTRACT_START);
         }
+        if (contractEnd && effectiveFrom > contractEnd) {
+            throw new BadRequestError(
+                ErrorMessages.CONTRACT_RATE.EFFECTIVE_FROM_AFTER_CONTRACT_END
+            );
+        }
+
 
         // 4. Find the current active rate covering effectiveFrom
         //    (effective_from <= effectiveFrom AND (effective_to IS NULL OR effective_to >= effectiveFrom))
