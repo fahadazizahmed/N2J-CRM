@@ -15,7 +15,6 @@ enum GstStatus {
   approved
   notApproved
 
-
   @@map("gst_status")
 }
 
@@ -98,7 +97,7 @@ model User {
   audit_logs        AuditLog[]
   sessions          UserSession[]
   clients           Client[] // primary contact for clients
-   // ─── Contract Relations ───
+  // ─── Contract Relations ───
   managed_contracts ClientContract[] @relation("ContractManager")
   created_contracts ClientContract[] @relation("ContractCreator")
 
@@ -152,11 +151,11 @@ model FailedOperation {
 // ─── Client ────
 
 model Client {
-  id Int @id @default(autoincrement())
-  client_code   String @unique
+  id          Int    @id @default(autoincrement())
+  client_code String @unique
   // Primary contact user (the User row created for this client)
-  user_id Int  @unique // 1-to-1: each client has exactly one user account
-  user    User @relation(fields: [user_id], references: [id], onDelete: Restrict)
+  user_id     Int    @unique // 1-to-1: each client has exactly one user account
+  user        User   @relation(fields: [user_id], references: [id], onDelete: Restrict)
 
   client_name  String // mirrors User.name — the client's business / display name
   abn          String? @unique
@@ -182,8 +181,8 @@ model Client {
 // ─── Tip Company ────
 
 model TipCompany {
-  id Int @id @default(autoincrement())
-  client_code   String @unique
+  id           Int     @id @default(autoincrement())
+  client_code  String  @unique
   tip_name     String
   abn          String? @unique
   address      String?
@@ -223,10 +222,10 @@ model ClientContract {
   credit_terms_override CreditTerms?
 
   // ─── Documents / Notes ───
-  documents      ClientContractDocument[]
-  special_terms  String?
-  rates          ClientContractRate[]
-  
+  documents     ClientContractDocument[]
+  special_terms String?
+  rates         ClientContractRate[]
+
   // ─── Internal Management ───
   contract_manager_id Int?
   contract_manager    User? @relation("ContractManager", fields: [contract_manager_id], references: [id], onDelete: SetNull)
@@ -260,7 +259,6 @@ model ClientContractDocument {
   @@map("client_contract_documents")
 }
 
-
 model ClientContractRate {
   id Int @id @default(autoincrement())
 
@@ -270,7 +268,7 @@ model ClientContractRate {
 
   // ─── Billing Logic ───
   billing_type   BillingType
-  material_type  String?        // optional (future expansion)
+  material_type  String? // optional (future expansion)
   rate           Float
   minimum_charge Float?
   toll_handling  TollHandling @default(included)
@@ -285,12 +283,97 @@ model ClientContractRate {
   @@map("client_contract_rates")
 }
 
-
 model EntitySequence {
-  id       Int             @id @default(autoincrement())
-  entity   SequenceEntity
-  year     Int
-  last_no  Int
+  id      Int            @id @default(autoincrement())
+  entity  SequenceEntity
+  year    Int
+  last_no Int
 
   @@unique([entity, year], name: "entity_year")
+}
+
+// ─── Fleet / Vehicle Module ────
+
+model Vehicle {
+  id Int @id @default(autoincrement())
+
+  registration_number String  @unique
+  model               String?
+  make  String?
+  make_year Int?
+  notes String?   // additional specifications or admin notes
+
+
+  vehicle_type_id Int
+  vehicle_type    VehicleType @relation(fields: [vehicle_type_id], references: [id])
+
+  status VehicleStatus @default(active)
+
+  driver_id Int?
+  driver    Driver? @relation(fields: [driver_id], references: [id], onDelete: SetNull)
+
+  mileage           Int?
+  last_service_date DateTime?
+  service_mileage   Int?
+
+  media VehicleMedia[]
+
+  created_by Int? // admin who created vehicle
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([vehicle_type_id])
+  @@index([driver_id])
+  @@map("vehicles")
+}
+
+model VehicleType {
+  id Int @id @default(autoincrement())
+
+  name        String  @unique
+  description String?
+
+  vehicles Vehicle[]
+
+  created_at DateTime @default(now())
+
+  @@map("vehicle_types")
+}
+
+enum VehicleStatus {
+  active
+  idle
+  maintenance
+  outOfService
+
+  @@map("vehicle_status")
+}
+
+model VehicleMedia {
+  id Int @id @default(autoincrement())
+
+  vehicle_id Int
+  vehicle    Vehicle @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
+
+  file_path String
+  file_type String?
+
+  created_at DateTime @default(now())
+
+  @@index([vehicle_id])
+  @@map("vehicle_media")
+}
+
+// Minimal Driver model to satisfy relation
+model Driver {
+  id   Int     @id @default(autoincrement())
+  name String?
+
+  vehicles Vehicle[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("drivers")
 }

@@ -8,7 +8,9 @@ const ErrorMessages = {
     INVALID_DATA_TYPE: (value?: string, expectedType?: string) =>
       `${value} value must be of type ${expectedType}`,
     KEY_MISSING: (key: string) => `${key} key is missing`,
-    INVALID_ID: (key: string) => `${key} must be a valid positive integer`
+    INVALID_ID: (key: string) => `${key} must be a valid positive integer`,
+    REQURED_FILED_MISSING: (key: string) => `${key} is required`,
+    VALUE_MUST_BE_INT: (value: string) => `The ${value} must be positive integer`,
 
   },
   //AUT_MODULE_ERROR
@@ -68,7 +70,7 @@ const ErrorMessages = {
     RATE_NOT_FOUND: 'Contract rate not found',
     NO_RATES: 'Contract must have at least one rate before it can be activated',
     EFFECTIVE_FROM_BEFORE_CONTRACT_START: 'effectiveFrom cannot be before the contract start date',
-    EFFECTIVE_FROM_AFTER_CONTRACT_END:'effectiveFrom cannot be after the contract end date',
+    EFFECTIVE_FROM_AFTER_CONTRACT_END: 'effectiveFrom cannot be after the contract end date',
     OVERLAP: 'The new rate period overlaps with an existing rate period',
     NO_ACTIVE_RATE_ON_DATE: (date: string) => `No active rate found covering date ${date}`,
     RATE_CHANGE_NOT_ALLOWED_ON_DRAFT: 'Use POST /rates to add rates on a draft contract. Rate change (versioning) is only for active contracts',
@@ -87,6 +89,10 @@ const ErrorMessages = {
     OPERATION_FAILED: (operation: string) => `Operation: ${operation} failed.`,
     ITEM_NOT_FOUND: (key: string) => `${key} not found.`,
   },
+  FLEET: {
+    VEHICLE_ALREADY_EXIST: 'Vehicle with this registration number already exists',
+    INVALID_VEHICLE_STATUS: 'Invalid vehicle status',
+  }
 };
 
 export default ErrorMessages;

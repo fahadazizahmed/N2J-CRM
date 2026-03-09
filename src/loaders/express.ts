@@ -12,6 +12,7 @@ import authRouter from '../modules/auth/routes';
 import crmRouter from '../modules/crm/routes';
 import tipRouter from '../modules/tip-company/routes';
 import contractRouter from '../modules/contract/routes';
+import fleetRouter from '../modules/fleet/routes';
 import cookieParser from "cookie-parser";
 
 export default ({ app }: { app: express.Application }) => {
@@ -80,6 +81,7 @@ export default ({ app }: { app: express.Application }) => {
   app.use(config.api.prefix, crmRouter);
   app.use(config.api.prefix, tipRouter);
   app.use(config.api.prefix, contractRouter);
+  app.use(config.api.prefix, fleetRouter);
 
   app.all('*', async (req, res) => {
     throw new NotFoundError(null);
