@@ -40,7 +40,7 @@ export const createVehicleValidationRules = () => {
             .toInt(),
 
         body('lastServiceDate')
-            .exists().withMessage(ErrorMessages.VALIDATION.KEY_MISSING('lastServiceDate')).bail()
+            .optional()
             .notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('lastServiceDate')).bail()
             .isISO8601().withMessage(ErrorMessages.CONTRACT.INVALID_DATE("lastServiceDate")),
 

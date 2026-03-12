@@ -8,6 +8,20 @@ const ROLES = [
     'subcontractor',
     'client'
 ];
+const VEHICLE_TYPES = [
+    "Bogie",
+    "8 Wheeler",
+    "10 Wheeler",
+    "Tri-axle / Superdog",
+    "Quad",
+    "Quin",
+    "Walking Floor",
+    "A-Double",
+    "B-Double",
+    "Semi",
+    "Side Tipper",
+    "Prime Mover"
+];
 
 async function main() {
     console.log(`Start seeding roles...`);
@@ -22,6 +36,18 @@ async function main() {
         });
         console.log(`Created/Updated role: ${role.name}`);
     }
+
+    for (const vehicleType of VEHICLE_TYPES) {
+        const type = await prisma.vehicleType.upsert({
+            where: { name: vehicleType },
+            update: {},
+            create: {
+                name: vehicleType,
+            },
+        });
+        console.log(`Created/Updated vehicle type: ${type.name}`);
+    }
+
 
     console.log(`Seeding finished.`);
 }

@@ -29,11 +29,12 @@ export default class AdminVehicleController {
     // POST /api/v1/admin/vehicle/upload-media/:id
     uploadMedia = async (req: Request, res: Response): Promise<void> => {
         try {
-            console.log("ewwwww", req.files)
+
             if (!req.files || (req.files as Express.Multer.File[]).length === 0) {
                 sendSuccessResponse(res, "Media files are required.", 400);
                 return;
             }
+
             const vehicleMedia = await this.adminVehicleService.uploadMedia(Number(req.params.id), req.files as Express.Multer.File[], this.actorId(req));
             sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_CREATED_SUCCESSFULLY('Vehicle media'), 201, vehicleMedia);
         } catch (e: any) { throw new GenericError(e, `Error in uploadMedia ${__filename}`); }
@@ -53,6 +54,22 @@ export default class AdminVehicleController {
             const result = await this.adminVehicleService.getVehicleStatuses();
             sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Vehicle Statuses'), 200, result);
         } catch (e: any) { throw new GenericError(e, `Error in getVehicleStatuses ${__filename}`); }
+    };
+
+    // GET /api/v1/admin/vehicle/get-vehicle-types
+    getVehicleTypes = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const result = await this.adminVehicleService.getVehicleTypes();
+            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Vehicle Types'), 200, result);
+        } catch (e: any) { throw new GenericError(e, `Error in getVehicleTypes ${__filename}`); }
+    };
+
+    // GET /api/v1/admin/vehicle/get-basic-vehicles
+    getBasicVehicles = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const result = await this.adminVehicleService.getBasicVehicles();
+            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Basic Vehicles'), 200, result);
+        } catch (e: any) { throw new GenericError(e, `Error in getBasicVehicles ${__filename}`); }
     };
 
 }

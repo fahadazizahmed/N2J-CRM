@@ -49,12 +49,26 @@ router.get(
 );
 
 router.get(
+    routes.Admin.VEHICLE.GET_VEHICLE_TYPES,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    controller.getVehicleTypes
+);
+
+router.get(
     routes.Admin.VEHICLE.GET_VEHICLES,
     authentication,
     userPermissionGuard([constant.ROLES.ADMIN]),
     getVehiclesValidationRules(),
     validateRequest,
     controller.getVehicles
+);
+
+router.get(
+    routes.Admin.VEHICLE.GET_BASIC_VEHICLES,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    controller.getBasicVehicles
 );
 
 export { router as adminVehicleRouter };

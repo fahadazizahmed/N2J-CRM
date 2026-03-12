@@ -5,7 +5,18 @@ export default {
       UPDATE_VEHICLE: '/fleet/vehicle/update-vehicle/:id',
       UPLOAD_VEHICLE_MEDIA: '/fleet/vehicle/upload-media/:id',
       GET_VEHICLES: '/fleet/vehicle/get-vehicles',
+      GET_BASIC_VEHICLES: '/fleet/vehicle/get-basic-vehicles',
       GET_VEHICLE_STATUSES: '/fleet/vehicle/get-vehicle-statuses',
+      GET_VEHICLE_TYPES: '/fleet/vehicle/get-vehicle-types',
+    },
+    DRIVER: {
+      ADD_NEW_DRIVER: '/fleet/driver/add-driver',
+      UPDATE_DRIVER: '/fleet/driver/update-driver/:id',
+      ADD_DRIVER_RATES: '/fleet/driver/add-driver-rates/:id',
+      GET_DRIVERS_ENUMS: '/fleet/driver/get-deriver-enums',
+      GET_DRIVERS: '/fleet/driver/get-drivers',
+      GET_DRIVER_BY_ID: '/fleet/driver/get-driver/:id',
+      UPLOAD_DRIVER_DOCS: '/fleet/driver/upload-docs/:id',
     }
 
   },

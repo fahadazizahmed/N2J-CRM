@@ -41,7 +41,8 @@ const constant = {
     VEHICLE: 'Vehicle',
     EMAIL: 'Email',
     CONTRACT: 'Contract',
-    CONTRCT_RATE:"ContractRate"
+    CONTRCT_RATE: "ContractRate",
+    DRIVER: 'Drvier',
   },
   ROLES: {
     ADMIN: 'admin',
@@ -61,6 +62,10 @@ const constant = {
     VEHICLE: 'NJA-VH',
     EMAIL: 'NJA-EM',
     CONTRACT: 'NJA-CT'
+  },
+  MEDIA_PATHS: {
+    DRIVER_DOC: (driverId: number | string, documentType: string, filename: string) => `fleet/driver/${driverId}/docs/${documentType}/${filename}`,
+    VEHICLE_MEDIA: (registrationNumber: string, filename: string) => `fleet/vehicle/${registrationNumber}/media/${filename}`
   }
 };
 export default constant;

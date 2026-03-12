@@ -5,3 +5,5 @@ node_modules
 /generated/prisma
 develop.env
 /develop.env
+uploads
+/uploads

@@ -97,6 +97,7 @@ model User {
   audit_logs        AuditLog[]
   sessions          UserSession[]
   clients           Client[] // primary contact for clients
+  driver            Driver?
   // ─── Contract Relations ───
   managed_contracts ClientContract[] @relation("ContractManager")
   created_contracts ClientContract[] @relation("ContractCreator")
@@ -299,10 +300,9 @@ model Vehicle {
 
   registration_number String  @unique
   model               String?
-  make  String?
-  make_year Int?
-  notes String?   // additional specifications or admin notes
-
+  make                String?
+  make_year           Int?
+  notes               String? // additional specifications or admin notes
 
   vehicle_type_id Int
   vehicle_type    VehicleType @relation(fields: [vehicle_type_id], references: [id])
@@ -310,7 +310,9 @@ model Vehicle {
   status VehicleStatus @default(active)
 
   driver_id Int?
-  driver    Driver? @relation(fields: [driver_id], references: [id], onDelete: SetNull)
+  driver    Driver? @relation("VehicleAssignedDriver", fields: [driver_id], references: [id], onDelete: SetNull)
+
+  assigned_drivers Driver[] @relation("DriverAssignedVehicle")
 
   mileage           Int?
   last_service_date DateTime?
@@ -365,15 +367,146 @@ model VehicleMedia {
   @@map("vehicle_media")
 }
 
-// Minimal Driver model to satisfy relation
-model Driver {
-  id   Int     @id @default(autoincrement())
-  name String?
+enum DriverStatus {
+  active
+  inactive
+  suspended
+  onLeave
 
-  vehicles Vehicle[]
+  @@map("driver_status")
+}
+
+enum DriverType {
+  inHouse
+  subcontractor
+  casual
+
+  @@map("driver_type")
+}
+
+enum DriverDocumentType {
+  license
+  medical
+  certification
+  training
+  compliance
+  identity
+  insurance
+  whiteCard
+  other
+
+  @@map("driver_document_type")
+}
+
+enum LicenseClass {
+  C
+  LR
+  MR
+  HR
+  HC
+  MC
+
+  @@map("license_class")
+}
+
+model Driver {
+  id Int @id @default(autoincrement())
+
+  first_name String
+  last_name  String
+
+  email String?
+  phone String?
+
+  photo_path String? // driver profile photo
+
+  // User account for the driver
+  user_id Int?  @unique
+  user    User? @relation(fields: [user_id], references: [id], onDelete: Restrict)
+
+  driver_type DriverType
+  status      DriverStatus @default(active)
+  is_mobile_access Boolean      @default(false)
+
+  // license information
+  license_number String?
+  license_class  LicenseClass?
+  license_expiry DateTime?
+
+  // optional vehicle assignment
+  vehicle_id Int?
+  vehicle    Vehicle? @relation("DriverAssignedVehicle", fields: [vehicle_id], references: [id], onDelete: SetNull)
+
+  // GPS tracking for mobile app
+  current_latitude     Float?
+  current_longitude    Float?
+  last_location_update DateTime?
+
+  // relations
+  documents DriverDocument[]
+  rates     DriverRate[]
+
+  // vehicles driven by this driver
+  assigned_vehicles Vehicle[] @relation("VehicleAssignedDriver")
+
+  created_at     DateTime         @default(now())
+  updated_at     DateTime         @updatedAt
+  DriverLocation DriverLocation[]
+
+  @@index([vehicle_id])
+  @@map("drivers")
+}
+
+model DriverDocument {
+  id Int @id @default(autoincrement())
+
+  driver_id Int
+  driver    Driver @relation(fields: [driver_id], references: [id], onDelete: Cascade)
+
+  document_type DriverDocumentType
+
+  file_path String
+  file_name String?
+
+  is_active   Boolean   @default(true)
+  expiry_date DateTime?
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  @@map("drivers")
+  @@index([driver_id])
+  @@map("driver_documents")
+}
+
+model DriverRate {
+  id Int @id @default(autoincrement())
+
+  driver_id Int
+  driver    Driver @relation(fields: [driver_id], references: [id], onDelete: Cascade)
+
+  hourly_rate         Float?
+  hourly_rate_weekend Float?
+
+  night_rate         Float?
+  night_rate_weekend Float?
+
+  created_at DateTime @default(now())
+
+  @@index([driver_id])
+  @@map("driver_rates")
+}
+
+model DriverLocation {
+  id Int @id @default(autoincrement())
+
+  driver_id Int
+  driver    Driver @relation(fields: [driver_id], references: [id], onDelete: Cascade)
+
+  latitude  Float
+  longitude Float
+
+  recorded_at DateTime @default(now())
+
+  @@index([driver_id])
+  @@map("driver_locations")
 }

@@ -42,7 +42,7 @@ export default class AdminCrmService implements IAdminCrmService {
                 select: { id: true },
             });
             if (existingUser) {
-                throw new BadRequestError(ErrorMessages.CLIENT.DUPLICATE_EMAIL);
+                throw new BadRequestError(ErrorMessages.GENERIC.DUPLICATE_EMAIL);
             }
 
             // Check for duplicate ABN (only if provided)
@@ -174,7 +174,7 @@ export default class AdminCrmService implements IAdminCrmService {
                 const target: string[] = error.meta?.target || [];
 
                 if (target.includes('email'))
-                    throw new BadRequestError(ErrorMessages.CLIENT.DUPLICATE_EMAIL);
+                    throw new BadRequestError(ErrorMessages.GENERIC.DUPLICATE_EMAIL);
 
                 if (target.includes('abn'))
                     throw new BadRequestError(ErrorMessages.CLIENT.DUPLICATE_ABN);

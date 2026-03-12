@@ -28,6 +28,7 @@ const InfoMessages = {
     PASSWORD_RESET_REQUESTED: "Password Reset Requested",
     ROLE_SELECTED: "Role Selected",
     CLIENT_CREATED_AND_INVITATION_SENT: "Client created and invitation sent",
+    DRIVER_CREATED_AND_INVITATION_SENT: "Driver created and invitation sent",
     TIP_COMPANY_CREATED: "Tip company created"
 
 

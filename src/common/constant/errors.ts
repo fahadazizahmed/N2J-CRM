@@ -11,6 +11,8 @@ const ErrorMessages = {
     INVALID_ID: (key: string) => `${key} must be a valid positive integer`,
     REQURED_FILED_MISSING: (key: string) => `${key} is required`,
     VALUE_MUST_BE_INT: (value: string) => `The ${value} must be positive integer`,
+    VALUE_MUST_BE_NUMERIC: (value: string) => `The ${value} must be a number`,
+    INVALID_EMAIL_FORMAT: 'Invalid email format',
 
   },
   //AUT_MODULE_ERROR
@@ -41,7 +43,6 @@ const ErrorMessages = {
     INVALID_GST_STATUS: 'Invalid GST status',
     INVALID_CREDIT_TERMS: 'Invalid credit terms',
     INVALID_CLIENT_STATUS: 'Invalid client status',
-    DUPLICATE_EMAIL: 'A user with this email already exists',
     DUPLICATE_ABN: 'A client with this ABN already exists',
     DUPLICATE_CLIENT_NAME: 'A client with this name already exists',
     CLIENT_NOT_FOUND: 'Client not found',
@@ -88,6 +89,7 @@ const ErrorMessages = {
   GENERIC: {
     OPERATION_FAILED: (operation: string) => `Operation: ${operation} failed.`,
     ITEM_NOT_FOUND: (key: string) => `${key} not found.`,
+    DUPLICATE_EMAIL: 'A user with this email already exists',
   },
   FLEET: {
     VEHICLE_ALREADY_EXIST: 'Vehicle with this registration number already exists',

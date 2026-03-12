@@ -7,7 +7,7 @@ import constant from '../../../common/constant/constant';
 import config from '../../../config';
 import ErrorMessages from '../../../common/constant/errors';
 import { ICreateVehicleDTO, IUpdateVehicleDTO, IGetVehiclesQuery } from '../dto/vehicle.dto';
-import { Vehicle, Prisma, VehicleStatus } from '../../../../generated/prisma';
+import { Vehicle, Prisma, VehicleStatus, VehicleType } from '../../../../generated/prisma';
 import InfoMessages from '../../../common/constant/messages';
 import { ImageService } from '../../../services/image.service';
 
@@ -16,6 +16,8 @@ export interface IAdminVehicleService {
     updateVehicle(id: number, updateVehicleDTO: IUpdateVehicleDTO, actorId?: number | null): Promise<Vehicle>;
     uploadMedia(vehicleId: number, files: Express.Multer.File[], actorId?: number | null): Promise<any>;
     getVehicleStatuses(): Promise<string[]>;
+    getVehicleTypes(): Promise<VehicleType[]>;
+    getBasicVehicles(): Promise<any[]>;
     getVehicles(query: IGetVehiclesQuery): Promise<{
         data: any[];
         pagination: { total: number; page: number; limit: number; hasNext: boolean; hasPrevious: boolean };
@@ -230,7 +232,7 @@ export default class AdminVehicleService implements IAdminVehicleService {
         }
 
         const mediaPromises = files.map(async (file) => {
-            const customBlobName = `fleet/vehicle/${vehicle.registration_number}/media/${file.filename}`;
+            const customBlobName = constant.MEDIA_PATHS.VEHICLE_MEDIA(vehicle.registration_number, file.filename);
             this.imageService.upload(file.path, customBlobName);
 
             return prisma.vehicleMedia.create({
@@ -259,6 +261,33 @@ export default class AdminVehicleService implements IAdminVehicleService {
         return Object.values(VehicleStatus);
     }
 
+    public async getVehicleTypes(): Promise<VehicleType[]> {
+        return prisma.vehicleType.findMany({
+            orderBy: { name: 'asc' }
+        });
+    }
+
+    public async getBasicVehicles(): Promise<any[]> {
+        const vehicles = await prisma.vehicle.findMany({
+            select: {
+                id: true,
+                make: true,
+                model: true,
+                make_year: true,
+                registration_number: true
+            },
+            orderBy: { created_at: 'desc' }
+        });
+
+        return vehicles.map(v => ({
+            id: v.id,
+            make: v.make,
+            model: v.model,
+            makeYear: v.make_year,
+            registrationNumber: v.registration_number
+        }));
+    }
+
     public async getVehicles(query: IGetVehiclesQuery): Promise<{
         data: any[];
         pagination: { total: number; page: number; limit: number; hasNext: boolean; hasPrevious: boolean };
@@ -277,7 +306,8 @@ export default class AdminVehicleService implements IAdminVehicleService {
             const search = query.search.trim();
             where.OR = [
                 { registration_number: { contains: search, mode: 'insensitive' } },
-                { driver: { name: { contains: search, mode: 'insensitive' } } },
+                { driver: { first_name: { contains: search, mode: 'insensitive' } } },
+                { driver: { last_name: { contains: search, mode: 'insensitive' } } },
             ];
         }
 
