@@ -48,6 +48,22 @@ export default class AdminVehicleController {
         } catch (e: any) { throw new GenericError(e, `Error in getVehicles ${__filename}`); }
     };
 
+    // GET /api/v1/admin/vehicle/get-basic-vehicles
+    getAllActiveIdleVehicles = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const result = await this.adminVehicleService.getAllActiveIdleVehicles();
+            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Basic Vehicles'), 200, result);
+        } catch (e: any) { throw new GenericError(e, `Error in getBasicVehicles ${__filename}`); }
+    };
+
+    // GET /api/v1/admin/vehicle/get-vehicles-with-driver-details
+    getVehiclesWithDriverDetails = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const result = await this.adminVehicleService.getVehiclesWithDriverDetails();
+            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Vehicles with Drivers'), 200, result);
+        } catch (e: any) { throw new GenericError(e, `Error in getVehiclesWithDriverDetails ${__filename}`); }
+    };
+
     // GET /api/v1/admin/vehicle/get-vehicle-statuses
     getVehicleStatuses = async (req: Request, res: Response): Promise<void> => {
         try {
@@ -64,12 +80,6 @@ export default class AdminVehicleController {
         } catch (e: any) { throw new GenericError(e, `Error in getVehicleTypes ${__filename}`); }
     };
 
-    // GET /api/v1/admin/vehicle/get-basic-vehicles
-    getBasicVehicles = async (req: Request, res: Response): Promise<void> => {
-        try {
-            const result = await this.adminVehicleService.getBasicVehicles();
-            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Basic Vehicles'), 200, result);
-        } catch (e: any) { throw new GenericError(e, `Error in getBasicVehicles ${__filename}`); }
-    };
+
 
 }

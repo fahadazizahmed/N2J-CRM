@@ -15,13 +15,15 @@ export interface IAdminVehicleService {
     createVehicle(createVehicleDTO: ICreateVehicleDTO, actorId?: number | null): Promise<Vehicle>;
     updateVehicle(id: number, updateVehicleDTO: IUpdateVehicleDTO, actorId?: number | null): Promise<Vehicle>;
     uploadMedia(vehicleId: number, files: Express.Multer.File[], actorId?: number | null): Promise<any>;
-    getVehicleStatuses(): Promise<string[]>;
-    getVehicleTypes(): Promise<VehicleType[]>;
-    getBasicVehicles(): Promise<any[]>;
+    getAllActiveIdleVehicles(): Promise<any[]>;
+    getVehiclesWithDriverDetails(): Promise<any[]>;
     getVehicles(query: IGetVehiclesQuery): Promise<{
         data: any[];
         pagination: { total: number; page: number; limit: number; hasNext: boolean; hasPrevious: boolean };
     }>;
+    getVehicleStatuses(): Promise<string[]>;
+    getVehicleTypes(): Promise<VehicleType[]>;
+
 }
 
 export default class AdminVehicleService implements IAdminVehicleService {
@@ -257,36 +259,6 @@ export default class AdminVehicleService implements IAdminVehicleService {
         return uploadedMedia;
     }
 
-    public async getVehicleStatuses(): Promise<string[]> {
-        return Object.values(VehicleStatus);
-    }
-
-    public async getVehicleTypes(): Promise<VehicleType[]> {
-        return prisma.vehicleType.findMany({
-            orderBy: { name: 'asc' }
-        });
-    }
-
-    public async getBasicVehicles(): Promise<any[]> {
-        const vehicles = await prisma.vehicle.findMany({
-            select: {
-                id: true,
-                make: true,
-                model: true,
-                make_year: true,
-                registration_number: true
-            },
-            orderBy: { created_at: 'desc' }
-        });
-
-        return vehicles.map(v => ({
-            id: v.id,
-            make: v.make,
-            model: v.model,
-            makeYear: v.make_year,
-            registrationNumber: v.registration_number
-        }));
-    }
 
     public async getVehicles(query: IGetVehiclesQuery): Promise<{
         data: any[];
@@ -334,6 +306,78 @@ export default class AdminVehicleService implements IAdminVehicleService {
             data,
             pagination: { total, page, limit, hasNext, hasPrevious }
         };
+    }
+
+
+
+    public async getAllActiveIdleVehicles(): Promise<any[]> {
+        const vehicles = await prisma.vehicle.findMany({
+            where: {
+                status: { in: ['active', 'idle'] },
+                driver_id: null
+            },
+            select: {
+                id: true,
+                make: true,
+                model: true,
+                make_year: true,
+                registration_number: true,
+                status: true
+            },
+            orderBy: { created_at: 'desc' }
+        });
+
+        return vehicles.map(v => ({
+            id: v.id,
+            make: v.make,
+            model: v.model,
+            makeYear: v.make_year,
+            registrationNumber: v.registration_number,
+            status: v.status
+        }));
+    }
+
+    public async getVehiclesWithDriverDetails(): Promise<any[]> {
+        const vehicles = await prisma.vehicle.findMany({
+            include: {
+                driver: {
+                    select: {
+                        id: true,
+                        first_name: true,
+                        last_name: true,
+                        phone: true,
+                        email: true
+                    }
+                }
+            },
+            orderBy: { created_at: 'desc' }
+        });
+
+        return vehicles.map(v => ({
+            id: v.id,
+            make: v.make,
+            model: v.model,
+            makeYear: v.make_year,
+            registrationNumber: v.registration_number,
+            status: v.status,
+            driver: v.driver ? {
+                id: v.driver.id,
+                firstName: v.driver.first_name,
+                lastName: v.driver.last_name,
+                phone: v.driver.phone,
+                email: v.driver.email
+            } : null
+        }));
+    }
+
+    public async getVehicleStatuses(): Promise<string[]> {
+        return Object.values(VehicleStatus);
+    }
+
+    public async getVehicleTypes(): Promise<VehicleType[]> {
+        return prisma.vehicleType.findMany({
+            orderBy: { name: 'asc' }
+        });
     }
 
 }

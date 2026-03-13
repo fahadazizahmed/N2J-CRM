@@ -12,6 +12,7 @@ export default {
   Admin: {
     //Auth
     ADD_USER: '/auth/add-user',
+    RESEND_INVITE: '/auth/resend-invite/:userId',
   },
 
 };

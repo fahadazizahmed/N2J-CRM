@@ -42,6 +42,29 @@ router.post(
 );
 
 router.get(
+    routes.Admin.VEHICLE.GET_VEHICLES,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    getVehiclesValidationRules(),
+    validateRequest,
+    controller.getVehicles
+);
+
+router.get(
+    routes.Admin.VEHICLE.GET_BASIC_VEHICLES,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    controller.getAllActiveIdleVehicles
+);
+
+router.get(
+    routes.Admin.VEHICLE.GET_VEHICLES_WITH_DRIVER_DETAILS,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    controller.getVehiclesWithDriverDetails
+);
+// Enum api
+router.get(
     routes.Admin.VEHICLE.GET_VEHICLE_STATUSES,
     authentication,
     userPermissionGuard([constant.ROLES.ADMIN]),
@@ -55,20 +78,7 @@ router.get(
     controller.getVehicleTypes
 );
 
-router.get(
-    routes.Admin.VEHICLE.GET_VEHICLES,
-    authentication,
-    userPermissionGuard([constant.ROLES.ADMIN]),
-    getVehiclesValidationRules(),
-    validateRequest,
-    controller.getVehicles
-);
 
-router.get(
-    routes.Admin.VEHICLE.GET_BASIC_VEHICLES,
-    authentication,
-    userPermissionGuard([constant.ROLES.ADMIN]),
-    controller.getBasicVehicles
-);
+
 
 export { router as adminVehicleRouter };

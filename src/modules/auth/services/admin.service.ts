@@ -13,6 +13,7 @@ import bcrypt from 'bcrypt';
 
 export interface IAdminAuthService {
     addNewUser: (userCreateDTO: IUserCreateDTO, actorId?: number | null) => Promise<User & { roles: Role[] }>;
+    resendInvite: (userId: number, actorId?: number | null) => Promise<User & { roles: Role[] }>;
 }
 
 export default class AdminAuthService implements IAdminAuthService {
@@ -175,5 +176,76 @@ export default class AdminAuthService implements IAdminAuthService {
 
         return finalUser;
 
+    }
+
+
+    /* email singup service */
+    public async resendInvite(userId: number, actorId?: number | null): Promise<User & { roles: Role[] }> {
+        if (!userId) {
+            throw new BadRequestError('User ID is required');
+        }
+        console.log("userId", userId);
+
+        const result = await prisma.$transaction(async (tx) => {
+            // Check if user exists within transaction
+            const existingUser = await tx.user.findUnique({
+                where: { id: userId },
+                include: { roles: true }
+            });
+            console.log(existingUser);
+
+            if (!existingUser) {
+                throw new BadRequestError('User not found');
+            }
+
+            // @ts-ignore
+            const inviteToken = jwt.sign(
+                {
+                    id: existingUser.id,
+                    role: existingUser.roles[0]?.name,
+                    type: constant.JWT_TOKEN_TYPE.INVITE
+                },
+                process.env.INVITE_SECRET as string,
+                { expiresIn: process.env.PASSWORD_SESSION_EXPIRES_IN || '24h' }
+            );
+
+            const hashedToken = await bcrypt.hash(inviteToken, 12);
+
+            // Update user with token in DB (within transaction)
+            const updatedUser = await tx.user.update({
+                where: { id: existingUser.id },
+                data: { invite_token: hashedToken },
+                include: { roles: true }
+            });
+
+            return { finalUser: updatedUser, inviteToken };
+        });
+
+        const { finalUser, inviteToken } = result;
+        const inviteLink = `${process.env.FRONT_END_DOMAIN}/set-password?token=${inviteToken}`;
+        console.log("finalUser", finalUser)
+
+        Promise.allSettled([
+            emailService.sendEmailWithRetry(
+                finalUser.email!,
+                config.REGISTER_USER_EMAIL.subject,
+                config.REGISTER_USER_EMAIL.content(inviteLink, finalUser.roles[0]?.name),
+                constant.ENTITY_TYPE.USER,
+                finalUser.id
+            ),
+            auditService.logWithRetry({
+                actor_id: actorId,
+                action: constant.AUDIT_LOG_ACTION.INVITE_SENT,
+                entity_type: constant.ENTITY_TYPE.USER,
+                entity_id: finalUser.id,
+                metadata: {
+                    role: finalUser.roles[0]?.name,
+                    email: finalUser.email,
+                    action: 'Invite Resent'
+                }
+            })
+        ]);
+
+        return finalUser;
     }
 }

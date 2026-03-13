@@ -18,4 +18,15 @@ export default class AdminAuthController {
             throw new GenericError(e, ` Error from signup ${__filename}`);
         }
     };
+
+    resendInvite = async (req: Request, res: Response) => {
+        try {
+            const actorId = (req as any).user?.id || null;
+            const userId = Number(req.params.userId);
+            const user = await this.adminAuthService.resendInvite(userId, actorId);
+            sendSuccessResponse(res, 'Invite resent successfully', 200, user);
+        } catch (e: any) {
+            throw new GenericError(e, `Error from resendInvite ${__filename}`);
+        }
+    };
 }

@@ -91,6 +91,7 @@ model User {
   roles             Role[]
   active_role       String?
   status            Int              @default(1) // 0: inactive, 1: active
+  last_login        DateTime?
   created_at        DateTime         @default(now())
   updated_at        DateTime         @updatedAt
   invite_token      String?

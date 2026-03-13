@@ -46,7 +46,7 @@ export default class AdminDriverController {
     getDriverById = async (req: Request, res: Response): Promise<void> => {
         try {
             const id = parseInt(req.params.id as string, 10);
-            const driver = await this.adminDriverService.getDriverById(id);
+            const driver = await this.adminDriverService.getDriverById(id, req);
             sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Driver'), 200, driver);
         } catch (e: any) { throw new GenericError(e, `Error in getDriverById ${__filename}`); }
     };
@@ -84,5 +84,14 @@ export default class AdminDriverController {
             );
             sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_CREATED_SUCCESSFULLY('Driver documents'), 201, docs);
         } catch (e: any) { throw new GenericError(e, `Error in uploadDocs ${__filename}`); }
+    };
+
+    // POST /api/v1/admin/fleet/driver/assign-vehicle/:id
+    assignVehicle = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const driverId = parseInt(req.params.id as string, 10);
+            const updatedDriver = await this.adminDriverService.assignVehicle(driverId, req.body, this.actorId(req));
+            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_UPDATED_SUCCESSFULLY('Vehicle assignment'), 200, updatedDriver);
+        } catch (e: any) { throw new GenericError(e, `Error in assignVehicle ${__filename}`); }
     };
 }

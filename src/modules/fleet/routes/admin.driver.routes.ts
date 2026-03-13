@@ -5,7 +5,7 @@ import { validateRequest } from '../../../middlewares/validate-request';
 import { authentication } from '../../../middlewares/authentication';
 import { userPermissionGuard } from '../../../middlewares/user-permission-guard';
 import constant from '../../../common/constant/constant';
-import { createDriverValidationRules, addDriverRateValidationRules, updateDriverValidationRules, getDriversValidationRules, uploadDriverDocsValidationRules } from '../validators/admin.driver.validator';
+import { createDriverValidationRules, addDriverRateValidationRules, updateDriverValidationRules, getDriversValidationRules, uploadDriverDocsValidationRules, assignVehicleValidationRules } from '../validators/admin.driver.validator';
 import { uploadDriverDocs } from '../helper';
 
 const router = express.Router();
@@ -71,6 +71,15 @@ router.post(
     uploadDriverDocsValidationRules(),
     validateRequest,
     controller.uploadDocs
+);
+
+router.post(
+    routes.Admin.DRIVER.ASSIGN_VEHICLE,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    assignVehicleValidationRules(),
+    validateRequest,
+    controller.assignVehicle
 );
 
 export { router as adminDriverRouter };

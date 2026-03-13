@@ -5,7 +5,8 @@ export default {
       UPDATE_VEHICLE: '/fleet/vehicle/update-vehicle/:id',
       UPLOAD_VEHICLE_MEDIA: '/fleet/vehicle/upload-media/:id',
       GET_VEHICLES: '/fleet/vehicle/get-vehicles',
-      GET_BASIC_VEHICLES: '/fleet/vehicle/get-basic-vehicles',
+      GET_BASIC_VEHICLES: '/fleet/vehicle/get-active-idle-vehicles',
+      GET_VEHICLES_WITH_DRIVER_DETAILS: '/fleet/vehicle/get-vehicles-with-driver-details',
       GET_VEHICLE_STATUSES: '/fleet/vehicle/get-vehicle-statuses',
       GET_VEHICLE_TYPES: '/fleet/vehicle/get-vehicle-types',
     },
@@ -17,6 +18,7 @@ export default {
       GET_DRIVERS: '/fleet/driver/get-drivers',
       GET_DRIVER_BY_ID: '/fleet/driver/get-driver/:id',
       UPLOAD_DRIVER_DOCS: '/fleet/driver/upload-docs/:id',
+      ASSIGN_VEHICLE: '/fleet/driver/assign-vehicle/:id',
     }
 
   },

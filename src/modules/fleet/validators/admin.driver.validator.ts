@@ -1,4 +1,4 @@
-import { body, query, ValidationChain } from 'express-validator';
+import { body, query, param, ValidationChain } from 'express-validator';
 import { DriverType, LicenseClass, DriverDocumentType } from '../../../../generated/prisma';
 import ErrorMessages from '../../../common/constant/errors';
 import { isValidPhone } from '../../../helper/helper.method';
@@ -175,6 +175,18 @@ export const uploadDriverDocsValidationRules = (): ValidationChain[] => {
             }),
     ];
 };
+
+export const assignVehicleValidationRules = (): ValidationChain[] => [
+    param('id')
+        .notEmpty().withMessage(ErrorMessages.VALIDATION.REQURED_FILED_MISSING('Driver id'))
+        .isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID('Driver id'))
+        .toInt(),
+    body('vehicleId')
+        .notEmpty().withMessage(ErrorMessages.VALIDATION.REQURED_FILED_MISSING('Vehicle id'))
+        .isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID('Vehicle id'))
+        .toInt(),
+];
+
 
 
 

@@ -2,7 +2,7 @@ import express from 'express';
 import routes from './routes';
 import AdminAuthController from '../controllers/admin.controller';
 import { validateRequest } from '../../../middlewares';
-import { adminAuthValidationRules } from '../validators/admin.validator';
+import { adminAuthValidationRules, resendInviteValidationRules } from '../validators/admin.validator';
 import { userPermissionGuard } from '../../../middlewares/user-permission-guard';
 import { authentication } from '../../../middlewares/authentication';
 import constant from '../../../common/constant/constant';
@@ -18,6 +18,16 @@ router.post(
     // adminAuthValidationRules(),
     // validateRequest,
     controller.addNewUser
+);
+
+/* Resend invite to user for password setup */
+router.post(
+    routes.Admin.RESEND_INVITE,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    resendInviteValidationRules(),
+    validateRequest,
+    controller.resendInvite
 );
 
 export { router as adminAuthRouter };

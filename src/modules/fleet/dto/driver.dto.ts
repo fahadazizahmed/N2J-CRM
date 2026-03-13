@@ -42,6 +42,10 @@ export interface IUpdateDriverDTO {
     nightRateWeekend?: number;
 }
 
+export interface IAssignVehicleDTO {
+    vehicleId: number;
+}
+
 export interface IGetDriversQuery {
     page?: number;
     limit?: number;

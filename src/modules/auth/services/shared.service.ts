@@ -217,6 +217,14 @@ export default class SharedAuthService implements ISharedAuthService {
 			}
 		});
 
+		// Update last_login
+		await prisma.user.update({
+			where: { id: user.id },
+			data: { last_login: new Date() }
+		});
+
+		(user as any).last_login = new Date(); // Ensure the returned object has it 
+
 		const isProduction = process.env.NODE_ENV === "production";
 
 		// 🔥 Set Cookies
