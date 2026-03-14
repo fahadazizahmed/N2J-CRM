@@ -80,6 +80,12 @@ export default class AdminVehicleController {
         } catch (e: any) { throw new GenericError(e, `Error in getVehicleTypes ${__filename}`); }
     };
 
-
+    assignDriver = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const vehicleId = parseInt(req.params.id as string, 10);
+            const updatedDriver = await this.adminVehicleService.assignDriver(vehicleId, req.body, this.actorId(req));
+            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_UPDATED_SUCCESSFULLY('Vehicle assignment'), 200, updatedDriver);
+        } catch (e: any) { throw new GenericError(e, `Error in assignVehicle ${__filename}`); }
+    };
 
 }

@@ -42,7 +42,7 @@ const constant = {
     EMAIL: 'Email',
     CONTRACT: 'Contract',
     CONTRCT_RATE: "ContractRate",
-    DRIVER: 'Drvier',
+    DRIVER: 'Drvier'
   },
   ROLES: {
     ADMIN: 'admin',

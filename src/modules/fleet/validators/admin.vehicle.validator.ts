@@ -127,3 +127,14 @@ export const getVehiclesValidationRules = (): ValidationChain[] => [
     query('status').optional().custom((value) => Object.values(VehicleStatus).includes(value)).withMessage(ErrorMessages.FLEET.INVALID_VEHICLE_STATUS),
     query('search').optional().isString().trim(),
 ];
+
+export const assignDriverValidationRules = (): ValidationChain[] => [
+    param('id')
+        .notEmpty().withMessage(ErrorMessages.VALIDATION.REQURED_FILED_MISSING('Driver id'))
+        .isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID('Driver id'))
+        .toInt(),
+    body('driverId')
+        .notEmpty().withMessage(ErrorMessages.VALIDATION.REQURED_FILED_MISSING('Vehicle id'))
+        .isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID('Vehicle id'))
+        .toInt(),
+];

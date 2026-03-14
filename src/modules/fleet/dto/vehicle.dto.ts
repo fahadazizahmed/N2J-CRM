@@ -26,3 +26,8 @@ export interface IGetVehiclesQuery {
     search?: string;
     status?: VehicleStatus;
 }
+
+
+export interface IAssignDriverDTO {
+    driverId: number;
+}

@@ -5,7 +5,7 @@ import { validateRequest } from '../../../middlewares';
 import { authentication } from '../../../middlewares/authentication';
 import { userPermissionGuard } from '../../../middlewares/user-permission-guard';
 import constant from '../../../common/constant/constant';
-import { createVehicleValidationRules, updateVehicleValidationRules, uploadVehicleMediaValidationRules, getVehiclesValidationRules } from '../validators/admin.vehicle.validator';
+import { createVehicleValidationRules, updateVehicleValidationRules, uploadVehicleMediaValidationRules, getVehiclesValidationRules, assignDriverValidationRules } from '../validators/admin.vehicle.validator';
 import { uploadVehicleMediaDocs } from '../helper';
 
 const router = express.Router();
@@ -22,15 +22,6 @@ router.post(
     controller.createVehicle
 );
 
-router.put(
-    routes.Admin.VEHICLE.UPDATE_VEHICLE,
-    authentication,
-    userPermissionGuard([constant.ROLES.ADMIN]),
-    updateVehicleValidationRules(),
-    validateRequest,
-    controller.updateVehicle
-);
-
 router.post(
     routes.Admin.VEHICLE.UPLOAD_VEHICLE_MEDIA,
     authentication,
@@ -39,29 +30,6 @@ router.post(
     uploadVehicleMediaValidationRules(),
     validateRequest,
     controller.uploadMedia
-);
-
-router.get(
-    routes.Admin.VEHICLE.GET_VEHICLES,
-    authentication,
-    userPermissionGuard([constant.ROLES.ADMIN]),
-    getVehiclesValidationRules(),
-    validateRequest,
-    controller.getVehicles
-);
-
-router.get(
-    routes.Admin.VEHICLE.GET_BASIC_VEHICLES,
-    authentication,
-    userPermissionGuard([constant.ROLES.ADMIN]),
-    controller.getAllActiveIdleVehicles
-);
-
-router.get(
-    routes.Admin.VEHICLE.GET_VEHICLES_WITH_DRIVER_DETAILS,
-    authentication,
-    userPermissionGuard([constant.ROLES.ADMIN]),
-    controller.getVehiclesWithDriverDetails
 );
 // Enum api
 router.get(
@@ -77,6 +45,63 @@ router.get(
     userPermissionGuard([constant.ROLES.ADMIN]),
     controller.getVehicleTypes
 );
+
+
+// use by driver
+router.get(
+    routes.Admin.VEHICLE.GET_BASIC_VEHICLES,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    controller.getAllActiveIdleVehicles
+);
+
+router.get(
+    routes.Admin.VEHICLE.GET_VEHICLES_WITH_DRIVER_DETAILS,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    controller.getVehiclesWithDriverDetails
+);
+
+
+router.post(
+    routes.Admin.VEHICLE.ASSIGN_DRIVER,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    assignDriverValidationRules(),
+    validateRequest,
+    controller.assignDriver
+);
+
+
+
+
+
+
+
+
+
+router.put(
+    routes.Admin.VEHICLE.UPDATE_VEHICLE,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    updateVehicleValidationRules(),
+    validateRequest,
+    controller.updateVehicle
+);
+
+
+
+router.get(
+    routes.Admin.VEHICLE.GET_VEHICLES,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    getVehiclesValidationRules(),
+    validateRequest,
+    controller.getVehicles
+);
+
+
+
 
 
 

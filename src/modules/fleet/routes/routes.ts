@@ -9,6 +9,7 @@ export default {
       GET_VEHICLES_WITH_DRIVER_DETAILS: '/fleet/vehicle/get-vehicles-with-driver-details',
       GET_VEHICLE_STATUSES: '/fleet/vehicle/get-vehicle-statuses',
       GET_VEHICLE_TYPES: '/fleet/vehicle/get-vehicle-types',
+      ASSIGN_DRIVER: '/fleet/vehicle/assign-driver/:id',
     },
     DRIVER: {
       ADD_NEW_DRIVER: '/fleet/driver/add-driver',
@@ -19,6 +20,8 @@ export default {
       GET_DRIVER_BY_ID: '/fleet/driver/get-driver/:id',
       UPLOAD_DRIVER_DOCS: '/fleet/driver/upload-docs/:id',
       ASSIGN_VEHICLE: '/fleet/driver/assign-vehicle/:id',
+      GET_DRIVERS_WITH_VEHICLE_DETAILS: '/fleet/driver/get-driver-with-vehicle-details',
+      GET_ALL_ACTIVE_NOT_ASSIGN_VEHICLE_DRIVERS: '/fleet/driver/get-active-not-assign-vehicles-drivers',
     }
 
   },

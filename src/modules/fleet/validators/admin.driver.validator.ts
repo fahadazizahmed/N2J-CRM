@@ -4,6 +4,7 @@ import ErrorMessages from '../../../common/constant/errors';
 import { isValidPhone } from '../../../helper/helper.method';
 import { CountryCode } from 'libphonenumber-js';
 
+
 export const createDriverValidationRules = () => {
     return [
         body('firstName').notEmpty().withMessage(ErrorMessages.VALIDATION.REQURED_FILED_MISSING('First name')).isString(),
@@ -49,10 +50,6 @@ export const createDriverValidationRules = () => {
             .optional()
             .isBoolean().withMessage('isMobileAccess must be a boolean')
             .toBoolean(),
-
-        // body('licenseExpiry')
-        //     .optional({ nullable: true })
-        //     .isISO8601().withMessage(ErrorMessages.CONTRACT.INVALID_DATE("licenseExpiry")),
         ...addDriverRateValidationRules()
 
 

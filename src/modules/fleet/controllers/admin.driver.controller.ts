@@ -94,4 +94,20 @@ export default class AdminDriverController {
             sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_UPDATED_SUCCESSFULLY('Vehicle assignment'), 200, updatedDriver);
         } catch (e: any) { throw new GenericError(e, `Error in assignVehicle ${__filename}`); }
     };
+
+
+
+    getAllActiveNotAssignVehiclesDrivers = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const result = await this.adminDriverService.getAllActiveNotAssignVehiclesDrivers();
+            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Basic Vehicles'), 200, result);
+        } catch (e: any) { throw new GenericError(e, `Error in getBasicVehicles ${__filename}`); }
+    };
+
+    getDriverWithVehicleDetails = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const result = await this.adminDriverService.getDriverWithVehicleDetails();
+            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Drvier with vechiles'), 200, result);
+        } catch (e: any) { throw new GenericError(e, `Error in getVehiclesWithDriverDetails ${__filename}`); }
+    };
 }

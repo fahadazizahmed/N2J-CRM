@@ -23,6 +23,53 @@ router.post(
 );
 
 router.post(
+    routes.Admin.DRIVER.UPLOAD_DRIVER_DOCS,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    uploadDriverDocs,
+    uploadDriverDocsValidationRules(),
+    validateRequest,
+    controller.uploadDocs
+);
+router.get(
+    routes.Admin.DRIVER.GET_DRIVERS_ENUMS,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    controller.getDriverEnums
+);
+
+
+router.get(
+    routes.Admin.DRIVER.GET_DRIVERS_WITH_VEHICLE_DETAILS,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    controller.getDriverWithVehicleDetails
+);
+
+router.post(
+    routes.Admin.DRIVER.ASSIGN_VEHICLE,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    assignVehicleValidationRules(),
+    validateRequest,
+    controller.assignVehicle
+);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+router.post(
     routes.Admin.DRIVER.ADD_DRIVER_RATES,
     authentication,
     userPermissionGuard([constant.ROLES.ADMIN]),
@@ -40,12 +87,6 @@ router.put(
     controller.updateDriver
 );
 
-router.get(
-    routes.Admin.DRIVER.GET_DRIVERS_ENUMS,
-    authentication,
-    userPermissionGuard([constant.ROLES.ADMIN]),
-    controller.getDriverEnums
-);
 
 router.get(
     routes.Admin.DRIVER.GET_DRIVER_BY_ID,
@@ -63,23 +104,33 @@ router.get(
     controller.getDrivers
 );
 
-router.post(
-    routes.Admin.DRIVER.UPLOAD_DRIVER_DOCS,
-    authentication,
-    userPermissionGuard([constant.ROLES.ADMIN]),
-    uploadDriverDocs,
-    uploadDriverDocsValidationRules(),
-    validateRequest,
-    controller.uploadDocs
-);
 
-router.post(
-    routes.Admin.DRIVER.ASSIGN_VEHICLE,
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+router.get(
+    routes.Admin.DRIVER.GET_ALL_ACTIVE_NOT_ASSIGN_VEHICLE_DRIVERS,
     authentication,
     userPermissionGuard([constant.ROLES.ADMIN]),
-    assignVehicleValidationRules(),
-    validateRequest,
-    controller.assignVehicle
+    controller.getAllActiveNotAssignVehiclesDrivers
 );
 
 export { router as adminDriverRouter };
