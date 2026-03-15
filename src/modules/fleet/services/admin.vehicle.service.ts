@@ -19,6 +19,7 @@ export interface IAdminVehicleService {
     getAllActiveIdleVehicles(): Promise<any[]>;
     getVehiclesWithDriverDetails(): Promise<any[]>;
     assignDriver(vehicleId: number, assignDriverDTO: IAssignDriverDTO, actorId?: number | null): Promise<any>;
+    getVehicleById(id: number): Promise<any>;
 
 
 
@@ -54,6 +55,27 @@ export default class AdminVehicleService implements IAdminVehicleService {
         if (existingVehicle) {
             throw new BadRequestError(ErrorMessages.FLEET.VEHICLE_ALREADY_EXIST);
         }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         const vehicle = await prisma.$transaction(async (tx) => {
             let vehicleTypeId: number;
@@ -372,78 +394,120 @@ export default class AdminVehicleService implements IAdminVehicleService {
             throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Vehicle'));
         }
 
-        if (updateVehicleDTO.registrationNumber && updateVehicleDTO.registrationNumber !== existingVehicle.registration_number) {
-            const conflict = await prisma.vehicle.findUnique({
-                where: { registration_number: updateVehicleDTO.registrationNumber }
-            });
-
-            if (conflict) {
-                throw new BadRequestError(ErrorMessages.FLEET.VEHICLE_ALREADY_EXIST);
-            }
-        }
-
-        let finalVehicleTypeId = existingVehicle.vehicle_type_id;
-
-        if (updateVehicleDTO.vehicleTypeId) {
-            const vehicleType = await prisma.vehicleType.findUnique({
-                where: { id: updateVehicleDTO.vehicleTypeId }
-            });
-
-            if (!vehicleType) {
-                throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND("Vehicle Type"));
-            }
-            finalVehicleTypeId = vehicleType.id;
-        } else if (updateVehicleDTO.vehicleTypeName) {
-            let vehicleType = await prisma.vehicleType.findFirst({
-                where: {
-                    name: {
-                        equals: updateVehicleDTO.vehicleTypeName,
-                        mode: 'insensitive'
-                    }
-                }
-            });
-
-            if (!vehicleType) {
-                vehicleType = await prisma.vehicleType.create({
-                    data: { name: updateVehicleDTO.vehicleTypeName }
+        let registration: string | undefined;
+        if (updateVehicleDTO.registrationNumber) {
+            registration = updateVehicleDTO.registrationNumber.trim().toUpperCase();
+            if (registration !== existingVehicle.registration_number) {
+                const conflict = await prisma.vehicle.findUnique({
+                    where: { registration_number: registration }
                 });
-            }
-            finalVehicleTypeId = vehicleType.id;
-        }
 
-        if (updateVehicleDTO.driverId !== undefined && updateVehicleDTO.driverId !== null) {
-            const driver = await prisma.driver.findUnique({
-                where: { id: updateVehicleDTO.driverId }
-            });
-            if (!driver) {
-                throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND("Driver"));
+                if (conflict) {
+                    throw new BadRequestError(ErrorMessages.FLEET.VEHICLE_ALREADY_EXIST);
+                }
             }
         }
 
-        const updateData: Prisma.VehicleUpdateInput = {
-            registration_number: updateVehicleDTO.registrationNumber,
-            vehicle_type: { connect: { id: finalVehicleTypeId } },
-            make: updateVehicleDTO.make,
-            model: updateVehicleDTO.model,
-            make_year: updateVehicleDTO.makeYear,
-            mileage: updateVehicleDTO.mileage,
-            last_service_date: updateVehicleDTO.lastServiceDate,
-            service_mileage: updateVehicleDTO.serviceMileage,
-            notes: updateVehicleDTO.notes,
-            status: updateVehicleDTO.status,
-        };
+        let driverChanged = false;
+        let newDriver: any = null;
 
         if (updateVehicleDTO.driverId !== undefined) {
-            if (updateVehicleDTO.driverId === null) {
-                updateData.driver = { disconnect: true };
-            } else {
-                updateData.driver = { connect: { id: updateVehicleDTO.driverId } };
+            if (updateVehicleDTO.driverId !== existingVehicle.driver_id) {
+                driverChanged = true;
+                if (updateVehicleDTO.driverId !== null) {
+                    const driver = await prisma.driver.findUnique({
+                        where: { id: updateVehicleDTO.driverId },
+                        select: { id: true, status: true, vehicle_id: true }
+                    });
+                    if (!driver) {
+                        throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND("Driver"));
+                    }
+                    if (driver.status !== DriverStatus.active) {
+                        throw new BadRequestError('Driver is not available for assignment (status must be active).');
+                    }
+                    if (driver.vehicle_id) {
+                        throw new BadRequestError("Driver already assigned to a vehicle");
+                    }
+                    newDriver = driver;
+                }
             }
         }
 
-        const updatedVehicle = await prisma.vehicle.update({
-            where: { id },
-            data: updateData
+        const updatedVehicle = await prisma.$transaction(async (tx) => {
+            let finalVehicleTypeId = existingVehicle.vehicle_type_id;
+
+            if (updateVehicleDTO.vehicleTypeId) {
+                const vehicleType = await tx.vehicleType.findUnique({
+                    where: { id: updateVehicleDTO.vehicleTypeId }
+                });
+
+                if (!vehicleType) {
+                    throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND("Vehicle Type"));
+                }
+                finalVehicleTypeId = vehicleType.id;
+            } else if (updateVehicleDTO.vehicleTypeName) {
+                let vehicleType = await tx.vehicleType.findFirst({
+                    where: {
+                        name: {
+                            equals: updateVehicleDTO.vehicleTypeName,
+                            mode: 'insensitive'
+                        }
+                    }
+                });
+
+                if (!vehicleType) {
+                    vehicleType = await tx.vehicleType.create({
+                        data: { name: updateVehicleDTO.vehicleTypeName }
+                    });
+                }
+                finalVehicleTypeId = vehicleType.id;
+            }
+
+            const updateData: Prisma.VehicleUpdateInput = {
+                vehicle_type: { connect: { id: finalVehicleTypeId } }
+            };
+
+            if (registration !== undefined) updateData.registration_number = registration;
+            if (updateVehicleDTO.make !== undefined) updateData.make = updateVehicleDTO.make;
+            if (updateVehicleDTO.model !== undefined) updateData.model = updateVehicleDTO.model;
+            if (updateVehicleDTO.makeYear !== undefined) updateData.make_year = updateVehicleDTO.makeYear;
+            if (updateVehicleDTO.mileage !== undefined) updateData.mileage = updateVehicleDTO.mileage;
+            if (updateVehicleDTO.lastServiceDate !== undefined) updateData.last_service_date = updateVehicleDTO.lastServiceDate;
+            if (updateVehicleDTO.serviceMileage !== undefined) updateData.service_mileage = updateVehicleDTO.serviceMileage;
+            if (updateVehicleDTO.notes !== undefined) updateData.notes = updateVehicleDTO.notes;
+            if (updateVehicleDTO.status !== undefined) updateData.status = updateVehicleDTO.status;
+
+            if (driverChanged) {
+                if (updateVehicleDTO.driverId === null) {
+                    updateData.driver = { disconnect: true };
+                } else {
+                    updateData.driver = { connect: { id: updateVehicleDTO.driverId } };
+                }
+            }
+            const vehicle = await tx.vehicle.update({
+                where: { id },
+                data: updateData
+            });
+
+            if (driverChanged) {
+
+                if (existingVehicle.driver_id) {
+
+                    await tx.driver.update({
+                        where: { id: existingVehicle.driver_id },
+                        data: { vehicle_id: null }
+                    });
+                }
+                if (newDriver) {
+
+                    await tx.driver.update({
+                        where: { id: newDriver.id },
+                        data: { vehicle_id: id }
+                    });
+                }
+            }
+
+            return vehicle;
         });
 
         auditService.logWithRetry({
@@ -507,10 +571,39 @@ export default class AdminVehicleService implements IAdminVehicleService {
         };
     }
 
+    public async getVehicleById(id: number): Promise<any> {
+        const vehicle = await prisma.vehicle.findUnique({
+            where: { id },
+            include: {
+                vehicle_type: true,
+                driver: true,
+                media: true
+            }
+        });
 
+        if (!vehicle) {
+            throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Vehicle'));
+        }
 
+        const mediaWithUrls = await Promise.all(
+            vehicle.media.map(async (media: any) => ({
+                ...media,
+                document_url: await this.imageService.getImageUrl(media.file_path),
+            }))
+        );
 
+        let driverWithPhoto: any = vehicle.driver;
+        if (driverWithPhoto && driverWithPhoto.photo_path) {
+            driverWithPhoto = {
+                ...driverWithPhoto,
+                photo_url: await this.imageService.getImageUrl(driverWithPhoto.photo_path)
+            };
+        }
 
-
-
+        return {
+            ...vehicle,
+            media: mediaWithUrls,
+            driver: driverWithPhoto
+        };
+    }
 }

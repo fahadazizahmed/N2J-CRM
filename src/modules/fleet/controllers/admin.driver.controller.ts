@@ -66,10 +66,7 @@ export default class AdminDriverController {
     // POST /api/v1/admin/fleet/driver/upload-docs/:id
     uploadDocs = async (req: Request, res: Response): Promise<void> => {
         try {
-            if (!req.files || (req.files as Express.Multer.File[]).length === 0) {
-                sendSuccessResponse(res, "Document files are required.", 400);
-                return;
-            }
+            const files = req.files ? (req.files as Express.Multer.File[]) : [];
 
             const driverId = parseInt(req.params.id as string, 10);
             const documentType = req.body.documentType as any;
@@ -79,7 +76,7 @@ export default class AdminDriverController {
                 driverId,
                 documentType,
                 expiryDate,
-                req.files as Express.Multer.File[],
+                files,
                 this.actorId(req)
             );
             sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_CREATED_SUCCESSFULLY('Driver documents'), 201, docs);

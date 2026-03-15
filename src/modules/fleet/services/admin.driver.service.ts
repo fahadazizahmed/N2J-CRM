@@ -23,15 +23,10 @@ export interface IAdminDriverService {
     getAllActiveNotAssignVehiclesDrivers(): Promise<any[]>;
     assignVehicle(driverId: number, assignVehicleDTO: IAssignVehicleDTO, actorId?: number | null): Promise<any>;
     getDriverWithVehicleDetails(): Promise<any[]>;
-
-
-
-
-
-
-
-
     updateDriver(id: number, updateDriverDTO: IUpdateDriverDTO, actorId?: number | null): Promise<any>;
+
+
+
     addDriverRates(driverId: number, addDriverRateDTO: IAddDriverRateDTO, actorId?: number | null): Promise<any>;
     getDriverById(id: number, req: any): Promise<any>;
     getDrivers(query: IGetDriversQuery): Promise<any>;
@@ -120,7 +115,7 @@ export default class AdminDriverService implements IAdminDriverService {
                 data: { invite_token: hashedToken },
             });
 
-            // 3d. Create the Driver record linked to this User (without vehicle yet)
+            // 3d. Create the Driver record linked to this User
             const driver = await tx.driver.create({
                 data: {
                     first_name: createDriverDTO.firstName,
@@ -131,6 +126,7 @@ export default class AdminDriverService implements IAdminDriverService {
                     license_class: createDriverDTO.licenseClass,
                     user_id: user.id,
                     is_mobile_access: createDriverDTO.isMobileAccess ?? false,
+                    vehicle_id: createDriverDTO.vehicleId || null
                 },
                 include: {
                     user: { select: { id: true, email: true, name: true } },
@@ -138,12 +134,6 @@ export default class AdminDriverService implements IAdminDriverService {
             });
 
             if (createDriverDTO.vehicleId) {
-                // Now assign the vehicle to the new driver
-                await tx.driver.update({
-                    where: { id: driver.id },
-                    data: { vehicle_id: createDriverDTO.vehicleId }
-                });
-
                 // Keep the vehicle table in sync
                 await tx.vehicle.update({
                     where: { id: createDriverDTO.vehicleId },
@@ -210,6 +200,8 @@ export default class AdminDriverService implements IAdminDriverService {
         actorId?: number | null
     ): Promise<any> {
 
+
+
         const driver = await prisma.driver.findUnique({
             where: { id: driverId }
         });
@@ -254,6 +246,7 @@ export default class AdminDriverService implements IAdminDriverService {
         ];
 
         const isSingleActive = singleActiveTypes.includes(documentType);
+
         if (isSingleActive && files.length > 1) {
             throw new BadRequestError(`Only one file is allowed for ${documentType} document type`);
         }
@@ -264,26 +257,130 @@ export default class AdminDriverService implements IAdminDriverService {
             DriverDocumentType.insurance
         ];
 
-        if (requiresExpiry.includes(documentType as DriverDocumentType) && !expiryDate) {
-            throw new BadRequestError(`Expiry date is required for ${documentType} document type`);
+        if (files.length > 0) {
+            if (requiresExpiry.includes(documentType as DriverDocumentType) && !expiryDate) {
+                throw new BadRequestError(`Expiry date is required for ${documentType} document type`);
+            }
+        } else {
+            if (!expiryDate) {
+                throw new BadRequestError(`Please provide a document or an expiry date to update`);
+            }
+
+            const activeDoc = await prisma.driverDocument.findFirst({
+                where: {
+                    driver_id: driverId,
+                    document_type: documentType as DriverDocumentType,
+                    is_active: true
+                }
+            });
+
+
+            if (!activeDoc) {
+                const newDoc = await prisma.driverDocument.create({
+                    data: {
+                        driver_id: driverId,
+                        document_type: documentType as DriverDocumentType,
+                        file_path: "",
+                        file_name: null, // No file name yet
+                        is_active: true,
+                        expiry_date: expiryDate
+                    }
+                });
+
+                auditService.logWithRetry({
+                    actor_id: actorId ?? null,
+                    action: constant.AUDIT_LOG_ACTION.CREATE,
+                    entity_type: constant.ENTITY_TYPE.DRIVER,
+                    entity_id: driverId,
+                    metadata: {
+                        message: `Saved expiry date for ${documentType} document`,
+                        document_type: documentType
+                    },
+                });
+
+
+                return [newDoc];
+            }
+
+
+            const updatedDoc = await prisma.driverDocument.update({
+                where: { id: activeDoc.id },
+                data: { expiry_date: expiryDate }
+            });
+
+            auditService.logWithRetry({
+                actor_id: actorId ?? null,
+                action: constant.AUDIT_LOG_ACTION.UPDATE,
+                entity_type: constant.ENTITY_TYPE.DRIVER,
+                entity_id: driverId,
+                metadata: {
+                    message: `Updated expiry date for ${documentType} document`,
+                    document_type: documentType
+                },
+            });
+
+            return [updatedDoc];
         }
 
+
         const uploadedDocs = await prisma.$transaction(async (tx) => {
+            let activeDocToUpdate: any = null;
+
             if (isSingleActive) {
-                // Find existing active document and deactivate it
-                await tx.driverDocument.updateMany({
+
+                //     // Find existing active document
+                const activeDocs = await tx.driverDocument.findMany({
                     where: {
                         driver_id: driverId,
                         document_type: documentType as DriverDocumentType,
                         is_active: true
-                    },
-                    data: { is_active: false }
+                    }
+                });
+
+
+                if (activeDocs.length > 0) {
+                    const firstActive = activeDocs[0];
+                    if (!firstActive.file_path || firstActive.file_path === "") {
+                        activeDocToUpdate = firstActive;
+                    } else {
+
+                        // Deactivate previous active documents
+                        await tx.driverDocument.updateMany({
+                            where: {
+                                driver_id: driverId,
+                                document_type: documentType as DriverDocumentType,
+                                is_active: true
+                            },
+                            data: { is_active: false }
+                        });
+                    }
+                }
+            } else {
+
+                activeDocToUpdate = await tx.driverDocument.findFirst({
+                    where: {
+                        driver_id: driverId,
+                        document_type: documentType as DriverDocumentType,
+                        is_active: true,
+                        file_path: ""
+                    }
                 });
             }
 
-            const mediaPromises = files.map(async (file) => {
+            const mediaPromises = files.map(async (file, index) => {
                 const customBlobName = constant.MEDIA_PATHS.DRIVER_DOC(driverId, documentType, file.filename);
                 this.imageService.upload(file.path, customBlobName);
+
+                if (activeDocToUpdate && index === 0) {
+                    return tx.driverDocument.update({
+                        where: { id: activeDocToUpdate.id },
+                        data: {
+                            file_path: customBlobName,
+                            file_name: file.originalname,
+                            ...(expiryDate ? { expiry_date: expiryDate } : {})
+                        }
+                    });
+                }
 
                 return tx.driverDocument.create({
                     data: {
@@ -372,9 +469,6 @@ export default class AdminDriverService implements IAdminDriverService {
         if (!vehicle) {
             throw new UnProcessableEntityError(ErrorMessages.GENERIC.ITEM_NOT_FOUND("Vehicle"));
         }
-
-
-
 
         if (vehicle.status !== VehicleStatus.active && vehicle.status !== VehicleStatus.idle) {
             throw new BadRequestError('Vehicle is not available for assignment (status must be active or idle).');
@@ -485,20 +579,28 @@ export default class AdminDriverService implements IAdminDriverService {
         }
 
 
+        let vehicleChanged = false;
+        let newVehicle: any = null;
 
-        if (updateDriverDTO.vehicleId) {
-            const existingVehicle = await prisma.vehicle.findUnique({
-                where: { id: updateDriverDTO.vehicleId },
-                select: { id: true, status: true, driver_id: true }
-            });
-            if (!existingVehicle) {
-                throw new UnProcessableEntityError(ErrorMessages.GENERIC.ITEM_NOT_FOUND("Vehicle"));
-            }
-            if (existingVehicle.status !== VehicleStatus.active && existingVehicle.status !== VehicleStatus.idle) {
-                throw new BadRequestError('Vehicle is not available for assignment (status must be active or idle).');
-            }
-            if (existingVehicle.driver_id === id) {
-                throw new UnProcessableEntityError('Vehicle is already assigned to this driver');
+        if (updateDriverDTO.vehicleId !== undefined) {
+            if (updateDriverDTO.vehicleId !== existingDriver.vehicle_id) {
+                vehicleChanged = true;
+                if (updateDriverDTO.vehicleId !== null) {
+                    const vehicle = await prisma.vehicle.findUnique({
+                        where: { id: updateDriverDTO.vehicleId },
+                        select: { id: true, status: true, driver_id: true }
+                    });
+                    if (!vehicle) {
+                        throw new UnProcessableEntityError(ErrorMessages.GENERIC.ITEM_NOT_FOUND("Vehicle"));
+                    }
+                    if (vehicle.status !== VehicleStatus.active && vehicle.status !== VehicleStatus.idle) {
+                        throw new BadRequestError('Vehicle is not available for assignment (status must be active or idle).');
+                    }
+                    if (vehicle.driver_id) {
+                        throw new BadRequestError("Vehicle already assigned to a driver");
+                    }
+                    newVehicle = vehicle;
+                }
             }
         }
 
@@ -524,27 +626,12 @@ export default class AdminDriverService implements IAdminDriverService {
                 }
             }
 
-            if (updateDriverDTO.vehicleId !== undefined) {
+
+            if (vehicleChanged) {
                 if (updateDriverDTO.vehicleId === null) {
                     updateData.vehicle = { disconnect: true };
-                    await tx.vehicle.updateMany({
-                        where: { driver_id: existingDriver.id },
-                        data: { driver_id: null }
-                    });
                 } else {
                     updateData.vehicle = { connect: { id: updateDriverDTO.vehicleId } };
-                    await tx.vehicle.updateMany({
-                        where: { driver_id: existingDriver.id },
-                        data: { driver_id: null }
-                    });
-                    await tx.driver.updateMany({
-                        where: { vehicle_id: updateDriverDTO.vehicleId },
-                        data: { vehicle_id: null }
-                    });
-                    await tx.vehicle.update({
-                        where: { id: updateDriverDTO.vehicleId },
-                        data: { driver_id: existingDriver.id }
-                    });
                 }
             }
 
@@ -553,6 +640,21 @@ export default class AdminDriverService implements IAdminDriverService {
                 data: updateData,
                 include: { user: { select: { id: true, email: true, name: true } } }
             });
+
+            if (vehicleChanged) {
+                if (existingDriver.vehicle_id) {
+                    await tx.vehicle.update({
+                        where: { id: existingDriver.vehicle_id },
+                        data: { driver_id: null }
+                    });
+                }
+                if (newVehicle) {
+                    await tx.vehicle.update({
+                        where: { id: newVehicle.id },
+                        data: { driver_id: id }
+                    });
+                }
+            }
 
             if (
                 updateDriverDTO.hourlyRate !== undefined ||
@@ -655,7 +757,7 @@ export default class AdminDriverService implements IAdminDriverService {
                 user: { select: { id: true, email: true, name: true } },
                 rates: true,
                 documents: true,
-                vehicle: { select: { id: true, registration_number: true, make: true, model: true } },
+                vehicle: { select: { id: true, registration_number: true, make: true, model: true, make_year: true, status: true } },
                 assigned_vehicles: true,
             },
         });
@@ -685,7 +787,7 @@ export default class AdminDriverService implements IAdminDriverService {
         const documentsWithUrls = await Promise.all(
             filteredDocuments.map(async (doc: any) => ({
                 ...doc,
-                document_url: await this.imageService.getImageUrl(doc.file_path),
+                document_url: doc.file_path ? await this.imageService.getImageUrl(doc.file_path) : null,
             }))
         );
 

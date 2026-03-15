@@ -88,8 +88,12 @@ router.put(
     validateRequest,
     controller.updateVehicle
 );
-
-
+router.get(
+    routes.Admin.VEHICLE.GET_VEHICLE_BY_ID,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    controller.getVehicleById
+);
 
 router.get(
     routes.Admin.VEHICLE.GET_VEHICLES,

@@ -88,4 +88,11 @@ export default class AdminVehicleController {
         } catch (e: any) { throw new GenericError(e, `Error in assignVehicle ${__filename}`); }
     };
 
+    getVehicleById = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const vehicleId = parseInt(req.params.id as string, 10);
+            const vehicle = await this.adminVehicleService.getVehicleById(vehicleId);
+            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Vehicle'), 200, vehicle);
+        } catch (e: any) { throw new GenericError(e, `Error in getVehicleById ${__filename}`); }
+    };
 }

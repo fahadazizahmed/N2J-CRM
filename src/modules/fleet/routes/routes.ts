@@ -10,6 +10,7 @@ export default {
       GET_VEHICLE_STATUSES: '/fleet/vehicle/get-vehicle-statuses',
       GET_VEHICLE_TYPES: '/fleet/vehicle/get-vehicle-types',
       ASSIGN_DRIVER: '/fleet/vehicle/assign-driver/:id',
+      GET_VEHICLE_BY_ID: '/fleet/vehicle/get-vehicle/:id',
     },
     DRIVER: {
       ADD_NEW_DRIVER: '/fleet/driver/add-driver',
