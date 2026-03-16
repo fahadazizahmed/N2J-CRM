@@ -15,9 +15,6 @@ const ErrorMessages = {
     INVALID_EMAIL_FORMAT: 'Invalid email format',
 
   },
-  //AUT_MODULE_ERROR
-  //PROFILE_MODILE_ERRO
-  //Module Error
 
   AUTH: {
     INVALID_ROLE: 'Invalid user role type',

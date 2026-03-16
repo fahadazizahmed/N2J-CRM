@@ -1,4 +1,4 @@
-import { VehicleStatus } from '../../../../generated/prisma';
+import { VehicleCategory, VehicleStatus } from '../../../../generated/prisma';
 
 // ─── Create ───────────────────────────────────────────────────────────────────
 export interface ICreateVehicleDTO {
@@ -14,6 +14,7 @@ export interface ICreateVehicleDTO {
     serviceMileage?: number;
     notes?: string;
     status?: VehicleStatus;
+    vehicleCategory?: VehicleCategory;
 }
 
 // ─── Update ───────────────────────────────────────────────────────────────────

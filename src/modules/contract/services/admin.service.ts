@@ -273,12 +273,10 @@ export default class AdminContractService implements IAdminContractService {
                 },
             },
         });
-        console.log("existing", existing)
 
         if (!existing) {
             throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Contract'));
         }
-
 
         // 2. Run eligibility checks ONLY when activating the contract
         if (dto.status === ContractStatus.active) {

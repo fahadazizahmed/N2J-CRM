@@ -107,4 +107,12 @@ export default class AdminDriverController {
             sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Drvier with vechiles'), 200, result);
         } catch (e: any) { throw new GenericError(e, `Error in getVehiclesWithDriverDetails ${__filename}`); }
     };
+
+    // GET /api/v1/admin/driver/stats
+    getDriverStats = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const stats = await this.adminDriverService.getDriverStats();
+            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Driver stats'), 200, stats);
+        } catch (e: any) { throw new GenericError(e, `Error in getDriverStats ${__filename}`); }
+    };
 }

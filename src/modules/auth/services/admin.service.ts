@@ -184,7 +184,6 @@ export default class AdminAuthService implements IAdminAuthService {
         if (!userId) {
             throw new BadRequestError('User ID is required');
         }
-        console.log("userId", userId);
 
         const result = await prisma.$transaction(async (tx) => {
             // Check if user exists within transaction
@@ -192,7 +191,6 @@ export default class AdminAuthService implements IAdminAuthService {
                 where: { id: userId },
                 include: { roles: true }
             });
-            console.log(existingUser);
 
             if (!existingUser) {
                 throw new BadRequestError('User not found');
@@ -223,7 +221,6 @@ export default class AdminAuthService implements IAdminAuthService {
 
         const { finalUser, inviteToken } = result;
         const inviteLink = `${process.env.FRONT_END_DOMAIN}/set-password?token=${inviteToken}`;
-        console.log("finalUser", finalUser)
 
         Promise.allSettled([
             emailService.sendEmailWithRetry(

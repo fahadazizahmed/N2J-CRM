@@ -4,7 +4,7 @@ import { NotFoundError } from '../../../errors/not-found-error';
 import { auditService } from '../../../services/audit.service';
 import constant from '../../../common/constant/constant';
 import { ICreateDriverDTO, IAddDriverRateDTO, IUpdateDriverDTO, IGetDriversQuery, IAssignVehicleDTO } from '../dto/driver.dto';
-import { Driver, DriverType, LicenseClass, Prisma, DriverStatus, DriverDocumentType } from '../../../../generated/prisma';
+import { DriverType, LicenseClass, Prisma, DriverStatus, DriverDocumentType } from '../../../../generated/prisma';
 import ErrorMessages from '../../../common/constant/errors';
 import { UnProcessableEntityError } from '../../../errors';
 import jwt from 'jsonwebtoken';
@@ -16,6 +16,26 @@ import { ImageService } from '../../../services/image.service';
 import { VehicleStatus } from '../../../../generated/prisma';
 
 
+export interface IDriverStats {
+    total: number;
+    // by status
+    active: number;
+    inactive: number;
+    suspended: number;
+    onLeave: number;
+    onBreak: number;
+    idle: number;
+    // by type
+    inHouse: number;
+    casual: number;
+    subcontractor: number;
+    // by assignment
+    assigned: number;
+    unassigned: number;
+    // mobile access
+    mobileAccessEnabled: number;
+}
+
 export interface IAdminDriverService {
     createDriver(createDriverDTO: ICreateDriverDTO, actorId?: number | null): Promise<any>;
     uploadDocs(driverId: number, documentType: DriverDocumentType | 'profile', expiryDate: Date | null, files: Express.Multer.File[], actorId?: number | null): Promise<any>;
@@ -24,13 +44,10 @@ export interface IAdminDriverService {
     assignVehicle(driverId: number, assignVehicleDTO: IAssignVehicleDTO, actorId?: number | null): Promise<any>;
     getDriverWithVehicleDetails(): Promise<any[]>;
     updateDriver(id: number, updateDriverDTO: IUpdateDriverDTO, actorId?: number | null): Promise<any>;
-
-
-
     addDriverRates(driverId: number, addDriverRateDTO: IAddDriverRateDTO, actorId?: number | null): Promise<any>;
     getDriverById(id: number, req: any): Promise<any>;
     getDrivers(query: IGetDriversQuery): Promise<any>;
-
+    getDriverStats(): Promise<IDriverStats>;
 }
 
 export default class AdminDriverService implements IAdminDriverService {
@@ -199,8 +216,6 @@ export default class AdminDriverService implements IAdminDriverService {
         files: Express.Multer.File[],
         actorId?: number | null
     ): Promise<any> {
-
-
 
         const driver = await prisma.driver.findUnique({
             where: { id: driverId }
@@ -524,10 +539,6 @@ export default class AdminDriverService implements IAdminDriverService {
     }
 
 
-
-
-
-
     public async getDriverWithVehicleDetails(): Promise<any[]> {
         const drivers = await prisma.driver.findMany({
             include: {
@@ -545,7 +556,7 @@ export default class AdminDriverService implements IAdminDriverService {
             },
             orderBy: { created_at: 'desc' }
         });
-        console.log("drivers", drivers)
+
         return drivers.map(v => ({
             id: v.id,
             firstName: v.first_name,
@@ -838,7 +849,7 @@ export default class AdminDriverService implements IAdminDriverService {
                     user: { select: { id: true, email: true, name: true, last_login: true } },
                     rates: true,
                     documents: true,
-                    vehicle: { select: { id: true, registration_number: true, make: true, model: true } }
+                    vehicle: { select: { id: true, registration_number: true, make: true, model: true, vehicle_category: true, status: true } }
                 },
             }),
             prisma.driver.count({ where }),
@@ -856,17 +867,60 @@ export default class AdminDriverService implements IAdminDriverService {
     }
 
 
+    public async getDriverStats(): Promise<IDriverStats> {
+        const [statusGroups, typeGroups, assignedCount, mobileCount, total] = await Promise.all([
+            // Group by status
+            prisma.driver.groupBy({
+                by: ['status'],
+                _count: { _all: true }
+            }),
+            // Group by driver type
+            prisma.driver.groupBy({
+                by: ['driver_type'],
+                _count: { _all: true }
+            }),
+            // Count assigned drivers (vehicle_id is not null)
+            prisma.driver.count({
+                where: { vehicle_id: { not: null } }
+            }),
+            // Count drivers with mobile access
+            prisma.driver.count({
+                where: { is_mobile_access: true }
+            }),
+            // Total count
+            prisma.driver.count()
+        ]);
 
+        // Build status map
+        const statusMap: Record<string, number> = {};
+        for (const group of statusGroups) {
+            statusMap[group.status] = group._count._all;
+        }
 
+        // Build type map
+        const typeMap: Record<string, number> = {};
+        for (const group of typeGroups) {
+            typeMap[group.driver_type] = group._count._all;
+        }
 
-
-
-
-
-
-
-
-
-
-
+        return {
+            total,
+            // status breakdown
+            active: statusMap[DriverStatus.active] ?? 0,
+            inactive: statusMap[DriverStatus.inactive] ?? 0,
+            suspended: statusMap[DriverStatus.suspended] ?? 0,
+            onLeave: statusMap[DriverStatus.onLeave] ?? 0,
+            onBreak: statusMap[DriverStatus.onBreak] ?? 0,
+            idle: statusMap[DriverStatus.idle] ?? 0,
+            // type breakdown
+            inHouse: typeMap[DriverType.inHouse] ?? 0,
+            casual: typeMap[DriverType.casual] ?? 0,
+            subcontractor: typeMap[DriverType.subcontractor] ?? 0,
+            // assignment breakdown
+            assigned: assignedCount,
+            unassigned: total - assignedCount,
+            // mobile access
+            mobileAccessEnabled: mobileCount,
+        };
+    }
 }

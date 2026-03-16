@@ -71,6 +71,7 @@ enum SequenceEntity {
   CONTRACT
   INVOICE
   TIPPER
+  VEHICLE
 }
 
 // ─── Core Models ────
@@ -299,7 +300,8 @@ model EntitySequence {
 model Vehicle {
   id Int @id @default(autoincrement())
 
-  registration_number String  @unique
+  vehicle_number      String?       @unique // auto-generated: NJA-VH-YYYY-XXX
+  registration_number String        @unique
   model               String?
   make                String?
   make_year           Int?
@@ -308,7 +310,8 @@ model Vehicle {
   vehicle_type_id Int
   vehicle_type    VehicleType @relation(fields: [vehicle_type_id], references: [id])
 
-  status VehicleStatus @default(active)
+  status           VehicleStatus   @default(active)
+  vehicle_category VehicleCategory @default(inHouse)
 
   driver_id Int?
   driver    Driver? @relation("VehicleAssignedDriver", fields: [driver_id], references: [id], onDelete: SetNull)
@@ -320,8 +323,7 @@ model Vehicle {
   service_mileage   Int?
 
   media VehicleMedia[]
-
-  created_by Int? // admin who created vehicle
+created_by Int? // admin who created vehicle
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -353,29 +355,72 @@ enum VehicleStatus {
   @@map("vehicle_status")
 }
 
+enum VehicleCategory {
+  inHouse
+  casual
+  subcontractor
+
+  @@map("vehicle_category")
+}
+
+enum VehicleDocumentType {
+  registration
+  insurance
+  maintenance
+  compliance
+  photos
+  other
+
+  @@map("vehicle_document_type")
+}
+
 model VehicleMedia {
   id Int @id @default(autoincrement())
 
   vehicle_id Int
   vehicle    Vehicle @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
 
-  file_path String
-  file_type String?
+  vehicle_document_type VehicleDocumentType
+  file_path             String
+  file_name             String?
+  file_type             String?
+  is_active             Boolean   @default(true)
+  expiry_date           DateTime?
 
   created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   @@index([vehicle_id])
   @@map("vehicle_media")
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 enum DriverStatus {
   active
   inactive
   suspended
   onLeave
+  onBreak
+  idle
 
   @@map("driver_status")
 }
+
+  
+
+
 
 enum DriverType {
   inHouse

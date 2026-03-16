@@ -1,5 +1,5 @@
 import { body, param, query, ValidationChain } from 'express-validator';
-import { VehicleStatus } from '../../../../generated/prisma';
+import { VehicleCategory, VehicleDocumentType, VehicleStatus } from '../../../../generated/prisma';
 import ErrorMessages from '../../../common/constant/errors';
 
 export const createVehicleValidationRules = () => {
@@ -57,7 +57,12 @@ export const createVehicleValidationRules = () => {
             .notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('notes')).bail()
             .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('notes')),
 
-        body('status').optional().isIn(Object.values(VehicleStatus)).withMessage('Invalid status')
+        body('status').optional().isIn(Object.values(VehicleStatus)).withMessage('Invalid status'),
+
+        body('vehicleCategory')
+            .optional()
+            .isIn(Object.values(VehicleCategory))
+            .withMessage(`Invalid vehicle category. Must be one of: ${Object.values(VehicleCategory).join(', ')}`),
     ];
 };
 
@@ -107,7 +112,12 @@ export const updateVehicleValidationRules = () => {
             .notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('notes')).bail()
             .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('notes')),
 
-        body('status').optional().isIn(Object.values(VehicleStatus)).withMessage('Invalid status')
+        body('status').optional().isIn(Object.values(VehicleStatus)).withMessage('Invalid status'),
+
+        body('vehicleCategory')
+            .optional()
+            .isIn(Object.values(VehicleCategory))
+            .withMessage(`Invalid vehicle category. Must be one of: ${Object.values(VehicleCategory).join(', ')}`),
     ];
 };
 
@@ -115,7 +125,42 @@ export const updateVehicleValidationRules = () => {
 
 export const uploadVehicleMediaValidationRules = () => {
     return [
-        param('id').isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID("id")).toInt()
+        param('id').isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID("id")).toInt(),
+
+        body('documentType')
+            .notEmpty().withMessage(ErrorMessages.VALIDATION.REQURED_FILED_MISSING('Document type'))
+            .custom((value) => {
+                const allowedTypes = [...Object.values(VehicleDocumentType), 'profile'];
+                if (!allowedTypes.includes(value as any)) {
+                    throw new Error('Invalid document type');
+                }
+                return true;
+            }),
+        body('expiryDate')
+            .optional({ nullable: true })
+            .isISO8601().withMessage('Invalid expiry date format')
+            .custom((value) => {
+                if (new Date(value) <= new Date()) {
+                    throw new Error('Expiry date must be in the future');
+                }
+                return true;
+            }),
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     ];
 };
 

@@ -4,39 +4,44 @@ import { NotFoundError } from '../../../errors/not-found-error';
 import { UnProcessableEntityError } from '../../../errors/unprocessable-entity.error';
 import { auditService } from '../../../services/audit.service';
 import constant from '../../../common/constant/constant';
-import config from '../../../config';
 import ErrorMessages from '../../../common/constant/errors';
 import { ICreateVehicleDTO, IUpdateVehicleDTO, IGetVehiclesQuery, IAssignDriverDTO } from '../dto/vehicle.dto';
-import { Vehicle, Prisma, VehicleStatus, VehicleType, DriverStatus } from '../../../../generated/prisma';
-import InfoMessages from '../../../common/constant/messages';
+import { Vehicle, Prisma, VehicleStatus, VehicleType, DriverStatus, SequenceEntity, VehicleDocumentType } from '../../../../generated/prisma';
 import { ImageService } from '../../../services/image.service';
+import { generateEntityCode } from '../../../helper/helper.method';
+
+export interface IVehicleStats {
+    total: number;
+    // by status
+    active: number;
+    idle: number;
+    maintenance: number;
+    outOfService: number;
+    // by category
+    inHouse: number;
+    casual: number;
+    subcontractor: number;
+    // by assignment
+    assigned: number;
+    unassigned: number;
+}
 
 export interface IAdminVehicleService {
     createVehicle(createVehicleDTO: ICreateVehicleDTO, actorId?: number | null): Promise<Vehicle>;
-    uploadMedia(vehicleId: number, files: Express.Multer.File[], actorId?: number | null): Promise<any>;
+    uploadMedia(vehicleId: number, documentType: VehicleDocumentType, expiryDate: Date | null, files: Express.Multer.File[], actorId?: number | null): Promise<any>;
     getVehicleStatuses(): Promise<string[]>;
     getVehicleTypes(): Promise<VehicleType[]>;
     getAllActiveIdleVehicles(): Promise<any[]>;
     getVehiclesWithDriverDetails(): Promise<any[]>;
     assignDriver(vehicleId: number, assignDriverDTO: IAssignDriverDTO, actorId?: number | null): Promise<any>;
     getVehicleById(id: number): Promise<any>;
-
-
-
-
-
-
-
-
-
-
     updateVehicle(id: number, updateVehicleDTO: IUpdateVehicleDTO, actorId?: number | null): Promise<Vehicle>;
     getVehicles(query: IGetVehiclesQuery): Promise<{
         data: any[];
         pagination: { total: number; page: number; limit: number; hasNext: boolean; hasPrevious: boolean };
     }>;
-
-
+    getVehicleDocs(id: number): Promise<any>;
+    getVehicleStats(): Promise<IVehicleStats>;
 }
 
 export default class AdminVehicleService implements IAdminVehicleService {
@@ -55,27 +60,6 @@ export default class AdminVehicleService implements IAdminVehicleService {
         if (existingVehicle) {
             throw new BadRequestError(ErrorMessages.FLEET.VEHICLE_ALREADY_EXIST);
         }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
         const vehicle = await prisma.$transaction(async (tx) => {
             let vehicleTypeId: number;
@@ -133,8 +117,16 @@ export default class AdminVehicleService implements IAdminVehicleService {
             let vehicle;
 
             try {
+                // Generate vehicle number (e.g. NJA-VH-2026-001)
+                const vehicleNumber = await generateEntityCode({
+                    tx,
+                    entity: SequenceEntity.VEHICLE,
+                    prefix: constant.CODE_PREFIX.VEHICLE,
+                });
+
                 vehicle = await tx.vehicle.create({
                     data: {
+                        vehicle_number: vehicleNumber,
                         registration_number: registration,
                         vehicle_type: { connect: { id: vehicleTypeId } },
                         make: createVehicleDTO.make,
@@ -145,6 +137,7 @@ export default class AdminVehicleService implements IAdminVehicleService {
                         service_mileage: createVehicleDTO.serviceMileage,
                         notes: createVehicleDTO.notes,
                         status: createVehicleDTO.status,
+                        vehicle_category: createVehicleDTO.vehicleCategory ?? 'inHouse',
                         created_by: actorId ?? null
                     }
                 });
@@ -186,9 +179,12 @@ export default class AdminVehicleService implements IAdminVehicleService {
 
     public async uploadMedia(
         vehicleId: number,
+        documentType: VehicleDocumentType,
+        expiryDate: Date | null,
         files: Express.Multer.File[],
         actorId?: number | null
     ): Promise<any> {
+
         const vehicle = await prisma.vehicle.findUnique({
             where: { id: vehicleId }
         });
@@ -197,30 +193,187 @@ export default class AdminVehicleService implements IAdminVehicleService {
             throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Vehicle'));
         }
 
-        const mediaPromises = files.map(async (file) => {
-            const customBlobName = constant.MEDIA_PATHS.VEHICLE_MEDIA(vehicle.registration_number, file.filename);
-            this.imageService.upload(file.path, customBlobName);
+        const fileRequiredTypeDocs: VehicleDocumentType[] = [
+            VehicleDocumentType.compliance,
+            VehicleDocumentType.maintenance,
+            VehicleDocumentType.other,
+            VehicleDocumentType.photos,
+        ];
+        const docsFound = fileRequiredTypeDocs.includes(documentType);
+        if (docsFound && files.length === 0) {
+            throw new BadRequestError(`File is required for ${documentType} document type`);
+        }
 
-            return prisma.vehicleMedia.create({
-                data: {
+
+        const singleActiveTypes: VehicleDocumentType[] = [
+            VehicleDocumentType.registration,
+            VehicleDocumentType.insurance,
+
+        ];
+
+        const isSingleActive = singleActiveTypes.includes(documentType);
+
+        if (isSingleActive && files.length > 1) {
+            throw new BadRequestError(`Only one file is allowed for ${documentType} document type`);
+        }
+
+        const requiresExpiry: VehicleDocumentType[] = [
+            VehicleDocumentType.registration,
+            VehicleDocumentType.insurance
+        ];
+        if (files.length > 0) {
+            if (requiresExpiry.includes(documentType as VehicleDocumentType) && !expiryDate) {
+                throw new BadRequestError(`Expiry date is required for ${documentType} document type`);
+            }
+        }
+        else {
+            if (!expiryDate) {
+                throw new BadRequestError(`Please provide a document or an expiry date to update`);
+            }
+
+            const activeDoc = await prisma.vehicleMedia.findFirst({
+                where: {
                     vehicle_id: vehicleId,
-                    file_path: customBlobName,
-                    file_type: file.mimetype,
+                    vehicle_document_type: documentType as VehicleDocumentType,
+                    is_active: true
                 }
             });
-        });
 
-        const uploadedMedia = await Promise.all(mediaPromises);
+            if (!activeDoc) {
+                const newDoc = await prisma.vehicleMedia.create({
+                    data: {
+                        vehicle_id: vehicleId,
+                        vehicle_document_type: documentType as VehicleDocumentType,
+                        file_path: "",
+                        file_name: null, // No file name yet
+                        is_active: true,
+                        expiry_date: expiryDate
+                    }
+                });
+                auditService.logWithRetry({
+                    actor_id: actorId ?? null,
+                    action: constant.AUDIT_LOG_ACTION.CREATE,
+                    entity_type: constant.ENTITY_TYPE.VEHICLE,
+                    entity_id: vehicleId,
+                    metadata: {
+                        message: `Saved expiry date for ${documentType} document`,
+                        document_type: documentType
+                    },
+                });
+
+
+                return [newDoc];
+            }
+
+            const updatedDoc = await prisma.vehicleMedia.update({
+                where: { id: activeDoc.id },
+                data: { expiry_date: expiryDate }
+            });
+
+            auditService.logWithRetry({
+                actor_id: actorId ?? null,
+                action: constant.AUDIT_LOG_ACTION.UPDATE,
+                entity_type: constant.ENTITY_TYPE.DRIVER,
+                entity_id: vehicleId,
+                metadata: {
+                    message: `Updated expiry date for ${documentType} document`,
+                    document_type: documentType
+                },
+            });
+
+            return [updatedDoc];
+
+
+        }
+
+        const uploadedDocs = await prisma.$transaction(async (tx) => {
+
+            let activeDocToUpdate: any = null;
+            if (isSingleActive) {
+
+                const activeDocs = await tx.vehicleMedia.findMany({
+                    where: {
+                        vehicle_id: vehicleId,
+                        vehicle_document_type: documentType as VehicleDocumentType,
+                        is_active: true
+                    }
+                });
+
+
+                if (activeDocs.length > 0) {
+                    const firstActive = activeDocs[0];
+                    if (!firstActive.file_path || firstActive.file_path === "") {
+                        activeDocToUpdate = firstActive;
+                    } else {
+
+                        // Deactivate previous active documents
+                        await tx.vehicleMedia.updateMany({
+                            where: {
+                                vehicle_id: vehicleId,
+                                vehicle_document_type: documentType as VehicleDocumentType,
+                                is_active: true
+                            },
+                            data: { is_active: false }
+                        });
+                    }
+                }
+            }
+
+            else {
+                activeDocToUpdate = await tx.vehicleMedia.findFirst({
+                    where: {
+                        vehicle_id: vehicleId,
+                        vehicle_document_type: documentType as VehicleDocumentType,
+                        is_active: true,
+                        file_path: ""
+                    }
+                });
+
+            }
+
+            const mediaPromises = files.map(async (file, index) => {
+                const customBlobName = constant.MEDIA_PATHS.VEHICLE_MEDIA(vehicle.registration_number, documentType, file.filename);
+                this.imageService.upload(file.path, customBlobName);
+
+                if (activeDocToUpdate && index === 0) {
+                    return tx.vehicleMedia.update({
+                        where: { id: activeDocToUpdate.id },
+                        data: {
+                            file_path: customBlobName,
+                            file_name: file.originalname,
+                            ...(expiryDate ? { expiry_date: expiryDate } : {})
+                        }
+                    });
+                }
+
+                return tx.vehicleMedia.create({
+                    data: {
+                        vehicle_id: vehicleId,
+                        vehicle_document_type: documentType as VehicleDocumentType,
+                        file_path: customBlobName,
+                        file_name: file.originalname,
+                        is_active: true,
+                        expiry_date: expiryDate
+                    }
+                });
+            });
+
+            return Promise.all(mediaPromises);
+        })
 
         auditService.logWithRetry({
             actor_id: actorId ?? null,
             action: constant.AUDIT_LOG_ACTION.UPDATE,
-            entity_type: constant.ENTITY_TYPE.VEHICLE,
+            entity_type: constant.ENTITY_TYPE.DRIVER,
             entity_id: vehicleId,
-            metadata: { message: `Uploaded ${files.length} media files` },
+            metadata: {
+                message: `Uploaded ${files.length} documents of type ${documentType}`,
+                document_type: documentType
+            },
         });
 
-        return uploadedMedia;
+        return uploadedDocs;
+
     }
 
     public async getVehicleStatuses(): Promise<string[]> {
@@ -372,13 +525,6 @@ export default class AdminVehicleService implements IAdminVehicleService {
 
         return result;
     }
-
-
-
-
-
-
-
 
     public async updateVehicle(
         id: number,
@@ -540,6 +686,7 @@ export default class AdminVehicleService implements IAdminVehicleService {
         if (query.search) {
             const search = query.search.trim();
             where.OR = [
+                { vehicle_number: { contains: search, mode: 'insensitive' } },
                 { registration_number: { contains: search, mode: 'insensitive' } },
                 { driver: { first_name: { contains: search, mode: 'insensitive' } } },
                 { driver: { last_name: { contains: search, mode: 'insensitive' } } },
@@ -555,7 +702,7 @@ export default class AdminVehicleService implements IAdminVehicleService {
                 include: {
                     vehicle_type: true,
                     driver: true,
-                    media: true
+                    //media: true
                 }
             }),
             prisma.vehicle.count({ where })
@@ -572,6 +719,46 @@ export default class AdminVehicleService implements IAdminVehicleService {
     }
 
     public async getVehicleById(id: number): Promise<any> {
+        const vehicle = await prisma.vehicle.findUnique({
+            where: { id },
+            include: {
+                vehicle_type: true,
+                driver: true,
+                media: true
+            }
+        });
+
+        if (!vehicle) {
+            throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Vehicle'));
+        }
+
+        const photoMedia = (vehicle.media || [])
+            .filter((m: any) => m.vehicle_document_type === VehicleDocumentType.photos)   // only photos
+            .slice(-3);                                // last 3 (or fewer if < 3)
+
+        const mediaWithUrls = await Promise.all(
+            photoMedia.map(async (media: any) => ({
+                ...media,
+                document_url: await this.imageService.getImageUrl(media.file_path),
+            }))
+        );
+
+        let driverWithPhoto: any = vehicle.driver;
+        if (driverWithPhoto && driverWithPhoto.photo_path) {
+            driverWithPhoto = {
+                ...driverWithPhoto,
+                photo_url: await this.imageService.getImageUrl(driverWithPhoto.photo_path)
+            };
+        }
+
+        return {
+            ...vehicle,
+            media: mediaWithUrls,
+            driver: driverWithPhoto
+        };
+    }
+
+    public async getVehicleDocs(id: number): Promise<any> {
         const vehicle = await prisma.vehicle.findUnique({
             where: { id },
             include: {
@@ -604,6 +791,55 @@ export default class AdminVehicleService implements IAdminVehicleService {
             ...vehicle,
             media: mediaWithUrls,
             driver: driverWithPhoto
+        };
+    }
+
+    public async getVehicleStats(): Promise<IVehicleStats> {
+        const [statusGroups, categoryGroups, assignedCount, total] = await Promise.all([
+            // Group by status
+            prisma.vehicle.groupBy({
+                by: ['status'],
+                _count: { _all: true }
+            }),
+            // Group by category
+            prisma.vehicle.groupBy({
+                by: ['vehicle_category'],
+                _count: { _all: true }
+            }),
+            // Count assigned vehicles (driver_id is not null)
+            prisma.vehicle.count({
+                where: { driver_id: { not: null } }
+            }),
+            // Total count
+            prisma.vehicle.count()
+        ]);
+
+        // Build status map
+        const statusMap: Record<string, number> = {};
+        for (const group of statusGroups) {
+            statusMap[group.status] = group._count._all;
+        }
+
+        // Build category map
+        const categoryMap: Record<string, number> = {};
+        for (const group of categoryGroups) {
+            categoryMap[group.vehicle_category] = group._count._all;
+        }
+
+        return {
+            total,
+            // status breakdown
+            active: statusMap[VehicleStatus.active] ?? 0,
+            idle: statusMap[VehicleStatus.idle] ?? 0,
+            maintenance: statusMap[VehicleStatus.maintenance] ?? 0,
+            outOfService: statusMap[VehicleStatus.outOfService] ?? 0,
+            // category breakdown
+            inHouse: categoryMap['inHouse'] ?? 0,
+            casual: categoryMap['casual'] ?? 0,
+            subcontractor: categoryMap['subcontractor'] ?? 0,
+            // assignment breakdown
+            assigned: assignedCount,
+            unassigned: total - assignedCount,
         };
     }
 }

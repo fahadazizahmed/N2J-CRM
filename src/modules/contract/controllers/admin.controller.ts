@@ -19,7 +19,6 @@ export default class AdminContractController {
             const contract = await this.adminContractService.createContract(req.body, this.actorId(req));
             sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_CREATED_SUCCESSFULLY('Contract'), 201, contract);
         } catch (e: any) {
-            console.log("Error", e)
             throw new GenericError(e, `Error in createContract ${__filename}`);
         }
     };
@@ -31,7 +30,6 @@ export default class AdminContractController {
             const contract = await this.adminContractService.updateContract(id, req.body, this.actorId(req));
             sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_UPDATED_SUCCESSFULLY('Contract'), 200, contract);
         } catch (e: any) {
-            console.log("Error", e)
             throw new GenericError(e, `Error in updateContract ${__filename}`);
         }
     };
@@ -55,7 +53,6 @@ export default class AdminContractController {
             const result = await this.adminContractService.uploadContractDocs(contractId, clientId, req.file as any, req.body.documentName);
             sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_UPDATED_SUCCESSFULLY('Contract Docs uploaded'), 200, result);
         } catch (e: any) {
-            console.log("Error", e)
             throw new GenericError(e, `Error in uploadDocs ${__filename}`);
         }
     };

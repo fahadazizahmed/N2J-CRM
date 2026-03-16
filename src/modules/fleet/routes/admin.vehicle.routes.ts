@@ -72,14 +72,6 @@ router.post(
     controller.assignDriver
 );
 
-
-
-
-
-
-
-
-
 router.put(
     routes.Admin.VEHICLE.UPDATE_VEHICLE,
     authentication,
@@ -89,10 +81,24 @@ router.put(
     controller.updateVehicle
 );
 router.get(
+    routes.Admin.VEHICLE.GET_VEHICLE_STATS,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    controller.getVehicleStats
+);
+
+router.get(
     routes.Admin.VEHICLE.GET_VEHICLE_BY_ID,
     authentication,
     userPermissionGuard([constant.ROLES.ADMIN]),
     controller.getVehicleById
+);
+
+router.get(
+    routes.Admin.VEHICLE.GET_VEHICLE_DOCS,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    controller.getVehicleDocs
 );
 
 router.get(

@@ -55,20 +55,6 @@ router.post(
     controller.assignVehicle
 );
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 router.post(
     routes.Admin.DRIVER.ADD_DRIVER_RATES,
     authentication,
@@ -87,6 +73,13 @@ router.put(
     controller.updateDriver
 );
 
+
+router.get(
+    routes.Admin.DRIVER.GET_DRIVER_STATS,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    controller.getDriverStats
+);
 
 router.get(
     routes.Admin.DRIVER.GET_DRIVER_BY_ID,

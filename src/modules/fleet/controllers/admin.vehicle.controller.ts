@@ -26,19 +26,26 @@ export default class AdminVehicleController {
         } catch (e: any) { throw new GenericError(e, `Error in updateVehicle ${__filename}`); }
     };
 
-    // POST /api/v1/admin/vehicle/upload-media/:id
+
     uploadMedia = async (req: Request, res: Response): Promise<void> => {
         try {
+            const files = req.files ? (req.files as Express.Multer.File[]) : [];
 
-            if (!req.files || (req.files as Express.Multer.File[]).length === 0) {
-                sendSuccessResponse(res, "Media files are required.", 400);
-                return;
-            }
+            const vehicleId = parseInt(req.params.id as string, 10);
+            const documentType = req.body.documentType as any;
+            const expiryDate = req.body.expiryDate ? new Date(req.body.expiryDate) : null;
 
-            const vehicleMedia = await this.adminVehicleService.uploadMedia(Number(req.params.id), req.files as Express.Multer.File[], this.actorId(req));
-            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_CREATED_SUCCESSFULLY('Vehicle media'), 201, vehicleMedia);
-        } catch (e: any) { throw new GenericError(e, `Error in uploadMedia ${__filename}`); }
+            const docs = await this.adminVehicleService.uploadMedia(
+                vehicleId,
+                documentType,
+                expiryDate,
+                files,
+                this.actorId(req)
+            );
+            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_CREATED_SUCCESSFULLY('Vehicle documents'), 201, docs);
+        } catch (e: any) { throw new GenericError(e, `Error in uploadDocs ${__filename}`); }
     };
+
 
     // GET /api/v1/admin/vehicle/get-vehicles
     getVehicles = async (req: Request, res: Response): Promise<void> => {
@@ -94,5 +101,21 @@ export default class AdminVehicleController {
             const vehicle = await this.adminVehicleService.getVehicleById(vehicleId);
             sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Vehicle'), 200, vehicle);
         } catch (e: any) { throw new GenericError(e, `Error in getVehicleById ${__filename}`); }
+    };
+
+    getVehicleDocs = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const vehicleId = parseInt(req.params.id as string, 10);
+            const vehicle = await this.adminVehicleService.getVehicleDocs(vehicleId);
+            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Vehicle docs'), 200, vehicle);
+        } catch (e: any) { throw new GenericError(e, `Error in getVehicleDocs ${__filename}`); }
+    };
+
+    // GET /api/v1/admin/vehicle/stats
+    getVehicleStats = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const stats = await this.adminVehicleService.getVehicleStats();
+            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Vehicle stats'), 200, stats);
+        } catch (e: any) { throw new GenericError(e, `Error in getVehicleStats ${__filename}`); }
     };
 }

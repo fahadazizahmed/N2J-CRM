@@ -65,7 +65,7 @@ const constant = {
   },
   MEDIA_PATHS: {
     DRIVER_DOC: (driverId: number | string, documentType: string, filename: string) => `fleet/driver/${driverId}/docs/${documentType}/${filename}`,
-    VEHICLE_MEDIA: (registrationNumber: string, filename: string) => `fleet/vehicle/${registrationNumber}/media/${filename}`
+    VEHICLE_MEDIA: (registrationNumber: string, documentType: string, filename: string) => `fleet/vehicle/${registrationNumber}/docs/${documentType}/${filename}`
   }
 };
 export default constant;
