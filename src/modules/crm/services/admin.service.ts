@@ -91,26 +91,6 @@ export default class AdminCrmService implements IAdminCrmService {
                     select: { id: true, email: true, name: true },
                 });
 
-                // 3b. Generate invitation token (signed JWT)
-                const inviteToken = jwt.sign(
-                    {
-                        id: user.id,
-                        role: constant.ROLES.CLIENT,
-                        type: constant.JWT_TOKEN_TYPE.INVITE,
-                    },
-                    process.env.INVITE_SECRET as string,
-                    { expiresIn: (process.env.PASSWORD_SESSION_EXPIRES_IN || '24h') as any }
-                );
-
-
-
-                const hashedToken = await bcrypt.hash(inviteToken, 12);
-
-                // 3c. Persist the hashed invite token on the User
-                await tx.user.update({
-                    where: { id: user.id },
-                    data: { invite_token: hashedToken },
-                });
                 const clientCode = await generateEntityCode({
                     tx,
                     entity: SequenceEntity.CLIENT,
@@ -136,10 +116,28 @@ export default class AdminCrmService implements IAdminCrmService {
                     },
                 });
 
-                return { client, user, inviteToken };
-            });
+                return { client, user };
+            }, { maxWait: 10000, timeout: 20000 });
+            const { client, user } = result;
 
-            const { client, user, inviteToken } = result;
+            // 3b. Generate invitation token (signed JWT)
+            const inviteToken = jwt.sign(
+                {
+                    id: user.id,
+                    role: constant.ROLES.CLIENT,
+                    type: constant.JWT_TOKEN_TYPE.INVITE,
+                },
+                process.env.INVITE_SECRET as string,
+                { expiresIn: (process.env.PASSWORD_SESSION_EXPIRES_IN || '24h') as any }
+            );
+
+            const hashedToken = await bcrypt.hash(inviteToken, 12);
+
+            // 3c. Persist the hashed invite token on the User
+            await prisma.user.update({
+                where: { id: user.id },
+                data: { invite_token: hashedToken },
+            });
 
             // ── 4. Fire-and-forget: send invite email + audit log ─────────────────────
             const inviteLink = `${process.env.FRONT_END_DOMAIN}/set-password?token=${inviteToken}`;
@@ -254,7 +252,7 @@ export default class AdminCrmService implements IAdminCrmService {
                 });
 
                 return client;
-            });
+            }, { maxWait: 10000, timeout: 20000 });
 
             // ── 4. Fire-and-forget audit log ───────────────────────────────────────────
             auditService.logWithRetry({

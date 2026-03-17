@@ -15,7 +15,7 @@ import InfoMessages from '../../../common/constant/messages';
 
 
 export interface ISharedAuthService {
-	verifyTokenAndSetPassword: (data: ISetPasswordDTO) => Promise<any>
+	verifyTokenAndSetPassword: (data: ISetPasswordDTO) => Promise<{ message: string; user_id: number }>
 	forgotPassword(data: IForgotPasswordDTO): Promise<any>
 	login(res: Response, data: ILoginDTO): Promise<any>
 	getCurrentUser(req: Request, res: Response): Promise<any>
@@ -26,72 +26,76 @@ export interface ISharedAuthService {
 export default class SharedAuthService implements ISharedAuthService {
 
 	// export default class SharedAuthService {
-	public async verifyTokenAndSetPassword(data: ISetPasswordDTO): Promise<any> {
-		// 1. Verify Token Signature
+	public async verifyTokenAndSetPassword(data: ISetPasswordDTO): Promise<{ message: string; user_id: number }> {
+		// 1. Verify Token Signature First
+
+
+
+
+
 		const decoded: any = isValidJWT(data.token, process.env.INVITE_SECRET as string);
 
 		if (!decoded || !decoded.id) {
 			throw new BadRequestError(ErrorMessages.AUTH.INVALID_OR_EXPIRED_TOKEN);
 		}
 
+
 		const isForgot = decoded.type === constant.JWT_TOKEN_TYPE.FORGOT;
 
-		// 2. Hash Password (outside transaction to reduce lock time)
-		const hashedPassword = await bcrypt.hash(data.password, 12);
-
-		const result = await prisma.$transaction(async (tx) => {
-			// 3. Find User
-			const user = await tx.user.findUnique({
-				where: { id: decoded.id }
-			});
-
-			if (!user) {
-				throw new UnProcessableEntityError(ErrorMessages.AUTH.USER_NOT_FOUND);
-			}
-
-			// 4. Verify Token matches DB
-			// Check if token exists on user (it might be null if already used)
-			if (!user.invite_token) {
-				throw new BadRequestError(ErrorMessages.AUTH.TOKEN_EXPIRED_OR_USED);
-			}
-
-			const isTokenValid = await bcrypt.compare(data.token, user.invite_token);
-			if (!isTokenValid) {
-				throw new BadRequestError(ErrorMessages.AUTH.TOKEN_EXPIRED_OR_USED);
-			}
-
-			// 5. Update User
-			const updatedUser = await tx.user.update({
-				where: { id: user.id },
-				data: {
-					password_hash: hashedPassword,
-					status: 1, // Active
-					invite_token: null // Clear token to prevent reuse
-				}
-			});
-
-			return {
-				message: isForgot ? "Password reset successfully. You can now login." : "Password set successfully. You can now login.",
-				user_id: updatedUser.id,
-				user: updatedUser
-			};
+		// 2. Fast Database Validations (Fail early before heavy operations)
+		const user = await prisma.user.findUnique({
+			where: { id: decoded.id }
 		});
 
-		// Audit Log (Fire and forget)
-		Promise.allSettled([
-			auditService.log({
-				actor_id: result.user.id,
-				action: constant.AUDIT_LOG_ACTION.UPDATE,
-				entity_type: constant.ENTITY_TYPE.USER,
-				entity_id: result.user.id,
-				metadata: {
-					action: isForgot ? InfoMessages.LOGGER_MESSAGE.PASSWORD_RESET : InfoMessages.LOGGER_MESSAGE.PASSWORD_SET_AND_ACCOUNT_ACTIVATED,
-					email: result.user.email
-				}
-			})
-		]);
+		if (!user) {
+			throw new UnProcessableEntityError(ErrorMessages.AUTH.USER_NOT_FOUND);
+		}
 
-		return { message: result.message, user_id: result.user_id };
+		// Check if token exists on user (it might be null if already used)
+		if (!user.invite_token) {
+			throw new BadRequestError(ErrorMessages.AUTH.TOKEN_EXPIRED_OR_USED);
+		}
+
+		// Verify Token matches DB (Beware: bcrypt truncates string inputs at 72 bytes)
+		const isTokenValid = await bcrypt.compare(data.token, user.invite_token);
+		if (!isTokenValid) {
+			throw new BadRequestError(ErrorMessages.AUTH.TOKEN_EXPIRED_OR_USED);
+		}
+
+		// 3. Hash Password (Only compute this once we know request is 100% valid)
+		const hashedPassword = await bcrypt.hash(data.password, 12);
+
+		// 4. Update User (Atomic on its own, no explicit $transaction needed)
+		const updatedUser = await prisma.user.update({
+			where: { id: user.id },
+			data: {
+				password_hash: hashedPassword,
+				status: 1, // Active
+				invite_token: null // Clear token to prevent reuse
+			}
+		});
+
+		const message = isForgot
+			? "Password reset successfully. You can now login."
+			: "Password set successfully. You can now login.";
+
+		// 5. Audit Log (Fire and forget, but with fallback for unhandled rejections)
+		auditService.log({
+			actor_id: updatedUser.id,
+			action: constant.AUDIT_LOG_ACTION.UPDATE,
+			entity_type: constant.ENTITY_TYPE.USER,
+			entity_id: updatedUser.id,
+			metadata: {
+				action: isForgot
+					? InfoMessages.LOGGER_MESSAGE.PASSWORD_RESET
+					: InfoMessages.LOGGER_MESSAGE.PASSWORD_SET_AND_ACCOUNT_ACTIVATED,
+				email: updatedUser.email
+			}
+		}).catch(err => {
+			console.error("Failed to write audit log:", err);
+		});
+
+		return { message, user_id: updatedUser.id };
 	}
 
 

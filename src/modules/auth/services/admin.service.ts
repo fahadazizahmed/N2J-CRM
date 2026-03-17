@@ -24,7 +24,6 @@ export default class AdminAuthService implements IAdminAuthService {
         if (userCreateDTO.email) {
             userCreateDTO.email = userCreateDTO.email.toLowerCase().trim();
         }
-
         // 1. Find Role ID
         const role = await prisma.role.findUnique({
             where: { name: userCreateDTO.role }
@@ -121,7 +120,7 @@ export default class AdminAuthService implements IAdminAuthService {
             delete (sanitizedUser as any).invite_token;
 
             return { user: sanitizedUser as User & { roles: Role[] }, isNewUser: isNew, token: inviteToken, isUserActive };
-        });
+        }, { maxWait: 10000, timeout: 20000 });
 
         const { user: finalUser, isNewUser, token, isUserActive } = result;
 
@@ -181,45 +180,41 @@ export default class AdminAuthService implements IAdminAuthService {
 
     /* email singup service */
     public async resendInvite(userId: number, actorId?: number | null): Promise<User & { roles: Role[] }> {
+
         if (!userId) {
             throw new BadRequestError('User ID is required');
         }
-
-        const result = await prisma.$transaction(async (tx) => {
-            // Check if user exists within transaction
-            const existingUser = await tx.user.findUnique({
-                where: { id: userId },
-                include: { roles: true }
-            });
-
-            if (!existingUser) {
-                throw new BadRequestError('User not found');
-            }
-
-            // @ts-ignore
-            const inviteToken = jwt.sign(
-                {
-                    id: existingUser.id,
-                    role: existingUser.roles[0]?.name,
-                    type: constant.JWT_TOKEN_TYPE.INVITE
-                },
-                process.env.INVITE_SECRET as string,
-                { expiresIn: process.env.PASSWORD_SESSION_EXPIRES_IN || '24h' }
-            );
-
-            const hashedToken = await bcrypt.hash(inviteToken, 12);
-
-            // Update user with token in DB (within transaction)
-            const updatedUser = await tx.user.update({
-                where: { id: existingUser.id },
-                data: { invite_token: hashedToken },
-                include: { roles: true }
-            });
-
-            return { finalUser: updatedUser, inviteToken };
+        // Check if user exists within transaction
+        const existingUser = await prisma.user.findUnique({
+            where: { id: userId },
+            include: { roles: true }
         });
 
-        const { finalUser, inviteToken } = result;
+        if (!existingUser) {
+            throw new BadRequestError('User not found');
+        }
+
+        // @ts-ignore
+        const inviteToken = jwt.sign(
+            {
+                id: existingUser.id,
+                role: existingUser.roles[0]?.name,
+                type: constant.JWT_TOKEN_TYPE.INVITE
+            },
+            process.env.INVITE_SECRET as string,
+            { expiresIn: process.env.PASSWORD_SESSION_EXPIRES_IN || '24h' }
+        );
+
+        const hashedToken = await bcrypt.hash(inviteToken, 12);
+
+        // Update user with token in DB (within transaction)
+        const finalUser = await prisma.user.update({
+            where: { id: existingUser.id },
+            data: { invite_token: hashedToken },
+            include: { roles: true }
+        });
+
+
         const inviteLink = `${process.env.FRONT_END_DOMAIN}/set-password?token=${inviteToken}`;
 
         Promise.allSettled([
@@ -241,8 +236,11 @@ export default class AdminAuthService implements IAdminAuthService {
                     action: 'Invite Resent'
                 }
             })
-        ]);
+        ])
 
         return finalUser;
     }
+
+
+
 }

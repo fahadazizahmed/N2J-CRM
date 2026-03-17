@@ -163,7 +163,7 @@ export default class AdminVehicleService implements IAdminVehicleService {
 
             return vehicle;
 
-        })
+        }, { maxWait: 10000, timeout: 20000 })
 
         // ── 5️⃣ Audit log (outside transaction) ─────────────────
         auditService.logWithRetry({
@@ -359,7 +359,7 @@ export default class AdminVehicleService implements IAdminVehicleService {
             });
 
             return Promise.all(mediaPromises);
-        })
+        }, { maxWait: 10000, timeout: 20000 })
 
         auditService.logWithRetry({
             actor_id: actorId ?? null,
@@ -510,7 +510,7 @@ export default class AdminVehicleService implements IAdminVehicleService {
             });
 
             return updatedDriver;
-        });
+        }, { maxWait: 10000, timeout: 20000 });
 
         auditService.logWithRetry({
             actor_id: actorId ?? null,
@@ -654,7 +654,7 @@ export default class AdminVehicleService implements IAdminVehicleService {
             }
 
             return vehicle;
-        });
+        }, { maxWait: 10000, timeout: 20000 });
 
         auditService.logWithRetry({
             actor_id: actorId ?? null,

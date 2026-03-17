@@ -69,7 +69,7 @@ export default class AdminTipService implements IAdminTipService {
                         status: status as PrismaTipStatus,
                     },
                 });
-            });
+            }, { maxWait: 10000, timeout: 20000 });
 
             // ── 4. Fire-and-forget audit log ───────────────────────────────────────────
             auditService.logWithRetry({
@@ -213,8 +213,6 @@ export default class AdminTipService implements IAdminTipService {
     }
 
     public async uploadTipImage(file: any): Promise<any> {
-        //file coming from api requrest
-        let getFile = await this.imageService.upload(file.path)
         //File wil come from the db
         let url = this.imageService.getImageUrl(normalizeBlobName(file.path));
         return url

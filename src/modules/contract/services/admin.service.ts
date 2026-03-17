@@ -144,7 +144,7 @@ export default class AdminContractService implements IAdminContractService {
                 },
             });
             return newContract;
-        });
+        }, { maxWait: 10000, timeout: 20000 });
 
         // Fire-and-forget audit log
         auditService.logWithRetry({
@@ -227,7 +227,7 @@ export default class AdminContractService implements IAdminContractService {
                 where: { id },
                 data: updateData,
             });
-        });
+        }, { maxWait: 10000, timeout: 20000 });
 
         // Fire-and-forget audit log
         auditService.logWithRetry({
@@ -754,7 +754,7 @@ export default class AdminContractService implements IAdminContractService {
                     effective_to: null, // open-ended
                 },
             });
-        });
+        }, { maxWait: 10000, timeout: 20000 });
 
         // 8. Audit log (fire-and-forget)
         auditService.logWithRetry({

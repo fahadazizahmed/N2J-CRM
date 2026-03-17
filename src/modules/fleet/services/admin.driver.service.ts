@@ -73,23 +73,6 @@ export default class AdminDriverService implements IAdminDriverService {
             throw new UnProcessableEntityError(ErrorMessages.GENERIC.ITEM_NOT_FOUND("Driver role"));
         }
 
-        if (createDriverDTO.vehicleId) {
-
-            const existingVehicle = await prisma.vehicle.findUnique({
-                where: { id: createDriverDTO.vehicleId },
-                select: { id: true, status: true, driver_id: true }
-            });
-            if (!existingVehicle) {
-                throw new UnProcessableEntityError(ErrorMessages.GENERIC.ITEM_NOT_FOUND("Vehicle"));
-            }
-            if (existingVehicle.status !== VehicleStatus.active && existingVehicle.status !== VehicleStatus.idle) {
-                throw new BadRequestError('Vehicle is not available for assignment (status must be active or idle).');
-            }
-            if (existingVehicle.driver_id)
-                throw new BadRequestError("Vehicle already assigned");
-        }
-
-
         const result = await prisma.$transaction(async (tx) => {
 
             let user;
@@ -113,24 +96,6 @@ export default class AdminDriverService implements IAdminDriverService {
                 throw e;
             }
 
-            // 3b. Generate invitation token (signed JWT)
-            const inviteToken = jwt.sign(
-                {
-                    id: user.id,
-                    role: constant.ROLES.DRIVER,
-                    type: constant.JWT_TOKEN_TYPE.INVITE,
-                },
-                process.env.INVITE_SECRET as string,
-                { expiresIn: (process.env.PASSWORD_SESSION_EXPIRES_IN || '24h') as any }
-            );
-
-            const hashedToken = await bcrypt.hash(inviteToken, 12);
-
-            // 3c. Persist the hashed invite token on the User
-            await tx.user.update({
-                where: { id: user.id },
-                data: { invite_token: hashedToken },
-            });
 
             // 3d. Create the Driver record linked to this User
             const driver = await tx.driver.create({
@@ -151,7 +116,19 @@ export default class AdminDriverService implements IAdminDriverService {
             });
 
             if (createDriverDTO.vehicleId) {
-                // Keep the vehicle table in sync
+
+                const existingVehicle = await tx.vehicle.findUnique({
+                    where: { id: createDriverDTO.vehicleId },
+                    select: { id: true, status: true, driver_id: true }
+                });
+                if (!existingVehicle) {
+                    throw new UnProcessableEntityError(ErrorMessages.GENERIC.ITEM_NOT_FOUND("Vehicle"));
+                }
+                if (existingVehicle.status !== VehicleStatus.active && existingVehicle.status !== VehicleStatus.idle) {
+                    throw new BadRequestError('Vehicle is not available for assignment (status must be active or idle).');
+                }
+                if (existingVehicle.driver_id)
+                    throw new BadRequestError("Vehicle already assigned");
                 await tx.vehicle.update({
                     where: { id: createDriverDTO.vehicleId },
                     data: { driver_id: driver.id }
@@ -175,11 +152,29 @@ export default class AdminDriverService implements IAdminDriverService {
                 });
             }
 
+            return { driver, user };
+        }, { maxWait: 10000, timeout: 20000 });
 
-            return { driver, user, inviteToken };
+        const { driver, user } = result;
+
+        // 3b. Generate invitation token (signed JWT)
+        const inviteToken = jwt.sign(
+            {
+                id: user.id,
+                role: constant.ROLES.DRIVER,
+                type: constant.JWT_TOKEN_TYPE.INVITE,
+            },
+            process.env.INVITE_SECRET as string,
+            { expiresIn: (process.env.PASSWORD_SESSION_EXPIRES_IN || '24h') as any }
+        );
+
+        const hashedToken = await bcrypt.hash(inviteToken, 12);
+
+        // 3c. Persist the hashed invite token on the User
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { invite_token: hashedToken },
         });
-
-        const { driver, user, inviteToken } = result;
 
         // ── 4. Fire-and-forget: send invite email + audit log ─────────────────────
         const inviteLink = `${process.env.FRONT_END_DOMAIN}/set-password?token=${inviteToken}`;
@@ -410,7 +405,7 @@ export default class AdminDriverService implements IAdminDriverService {
             });
 
             return Promise.all(mediaPromises);
-        });
+        }, { maxWait: 10000, timeout: 20000 });
 
         auditService.logWithRetry({
             actor_id: actorId ?? null,
@@ -522,7 +517,7 @@ export default class AdminDriverService implements IAdminDriverService {
             });
 
             return updatedDriver;
-        });
+        }, { maxWait: 10000, timeout: 20000 });
 
         auditService.logWithRetry({
             actor_id: actorId ?? null,
@@ -691,7 +686,7 @@ export default class AdminDriverService implements IAdminDriverService {
             }
 
             return updatedDriver;
-        });
+        }, { maxWait: 10000, timeout: 20000 });
 
         auditService.logWithRetry({
             actor_id: actorId ?? null,

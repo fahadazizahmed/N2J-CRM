@@ -7,3 +7,5 @@ develop.env
 /develop.env
 uploads
 /uploads
+production.env
+/production.env
