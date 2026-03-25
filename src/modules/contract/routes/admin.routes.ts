@@ -1,7 +1,7 @@
 import express from 'express';
 import AdminContractController from '../controllers/admin.controller';
 import { validateRequest } from '../../../middlewares';
-import { createContractValidationRules, updateContractValidationRules, updateContractStatusValidationRules, uploadContractDocsValidationRules, getContractByIdValidationRules, getContractsValidationRules, addRateValidationRules, changeRateValidationRules, getRatesValidationRules, deleteRateValidationRules } from '../validators/admin.validator';
+import { createContractValidationRules, updateContractValidationRules, updateContractStatusValidationRules, uploadContractDocsValidationRules, getContractByIdValidationRules, getContractsValidationRules, addRateValidationRules, changeRateValidationRules, getRatesValidationRules, updateContractApprovalStatusValidationRules } from '../validators/admin.validator';
 import { authentication } from '../../../middlewares/authentication';
 import { userPermissionGuard } from '../../../middlewares/user-permission-guard';
 import constant from '../../../common/constant/constant';
@@ -42,6 +42,16 @@ router.put(
     controller.updateContractStatus
 );
 
+router.put(
+    routes.Admin.UPDATE_CONTRACT_APPROVAL_STATUS,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    updateContractApprovalStatusValidationRules(),
+    validateRequest,
+    controller.updateContractApprovalStatus
+);
+
+
 router.post(
     routes.Admin.UPLOAD_CONTRACT_DOCS,
     authentication,
@@ -70,6 +80,14 @@ router.get(
     getContractsValidationRules(),
     validateRequest,
     controller.getContracts
+);
+
+// ─── GET /contract/active-supplier-contracts ──────────────────────────────────
+router.get(
+    routes.Admin.GET_ACTIVE_SUPPLIER_CONTRACTS,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    controller.getActiveSupplierContracts
 );
 
 // ─── Rate Management ──────────────────────────────────────────────────────────

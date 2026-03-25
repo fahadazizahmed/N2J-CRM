@@ -12,7 +12,7 @@ import { Client, ClientStatus as PrismaClientStatus, GstStatus, CreditTerms, Pri
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import InfoMessages from '../../../common/constant/messages';
-import { generateEntityCode } from '../../../helper/helper.method';
+import { generateEntityCode, getPagination } from '../../../helper/helper.method';
 
 export interface IAdminCrmService {
     createClient(createClientDTO: ICreateClientDTO, actorId?: number | null): Promise<Client & { user: { id: number; email: string; name: string | null } }>;
@@ -23,9 +23,9 @@ export interface IAdminCrmService {
         pagination: { total: number; page: number; limit: number; hasNext: boolean; hasPrevious: boolean },
         totalPending: number
     }>;
+    getAllClients(): Promise<{ id: number; client_name: string; phone: string | null; client_code: string; email: string }[]>;
 
 }
-
 export default class AdminCrmService implements IAdminCrmService {
     public async createClient(
         createClientDTO: ICreateClientDTO,
@@ -56,15 +56,6 @@ export default class AdminCrmService implements IAdminCrmService {
                 }
             }
 
-            // Check for duplicate client name (case-insensitive)
-            const existingName = await prisma.client.findFirst({
-                where: { client_name: { equals: clientName, mode: 'insensitive' } },
-                select: { id: true },
-            });
-            if (existingName) {
-                throw new BadRequestError(ErrorMessages.CLIENT.DUPLICATE_CLIENT_NAME);
-            }
-
             // ── 2. Find the "client" role ──────────────────────────────────────────────
             const clientRole = await prisma.role.findUnique({
                 where: { name: constant.ROLES.CLIENT },
@@ -91,6 +82,29 @@ export default class AdminCrmService implements IAdminCrmService {
                     select: { id: true, email: true, name: true },
                 });
 
+
+
+                // 3b. Generate invitation token (signed JWT)
+                const inviteToken = jwt.sign(
+                    {
+                        id: user.id,
+                        role: constant.ROLES.CLIENT,
+                        type: constant.JWT_TOKEN_TYPE.INVITE,
+                    },
+                    process.env.INVITE_SECRET as string,
+                    { expiresIn: (process.env.PASSWORD_SESSION_EXPIRES_IN || '24h') as any }
+                );
+
+                const hashedToken = await bcrypt.hash(inviteToken, 12);
+
+                // 3c. Persist the hashed invite token on the User
+                await tx.user.update({
+                    where: { id: user.id },
+                    data: { invite_token: hashedToken },
+                });
+
+
+
                 const clientCode = await generateEntityCode({
                     tx,
                     entity: SequenceEntity.CLIENT,
@@ -116,28 +130,9 @@ export default class AdminCrmService implements IAdminCrmService {
                     },
                 });
 
-                return { client, user };
-            }, { maxWait: 10000, timeout: 20000 });
-            const { client, user } = result;
-
-            // 3b. Generate invitation token (signed JWT)
-            const inviteToken = jwt.sign(
-                {
-                    id: user.id,
-                    role: constant.ROLES.CLIENT,
-                    type: constant.JWT_TOKEN_TYPE.INVITE,
-                },
-                process.env.INVITE_SECRET as string,
-                { expiresIn: (process.env.PASSWORD_SESSION_EXPIRES_IN || '24h') as any }
-            );
-
-            const hashedToken = await bcrypt.hash(inviteToken, 12);
-
-            // 3c. Persist the hashed invite token on the User
-            await prisma.user.update({
-                where: { id: user.id },
-                data: { invite_token: hashedToken },
-            });
+                return { client, user, inviteToken };
+            }, { maxWait: constant.TX_MAX_WAIT, timeout: constant.TX_TIMEOUT });
+            const { client, user, inviteToken } = result;
 
             // ── 4. Fire-and-forget: send invite email + audit log ─────────────────────
             const inviteLink = `${process.env.FRONT_END_DOMAIN}/set-password?token=${inviteToken}`;
@@ -201,36 +196,31 @@ export default class AdminCrmService implements IAdminCrmService {
         if (!existing) throw new NotFoundError(ErrorMessages.CLIENT.CLIENT_NOT_FOUND);
 
         // ── 2. Pre-flight uniqueness guards (skip if value hasn't changed) ────────────
-        if (abn && abn !== existing.abn) {
+        if (abn !== undefined && abn !== null && abn !== existing.abn) {
             const abnConflict = await prisma.client.findUnique({
                 where: { abn },
                 select: { id: true },
             });
-            if (abnConflict) throw new BadRequestError(ErrorMessages.CLIENT.DUPLICATE_ABN);
-        }
 
-        if (clientName && clientName.toLowerCase() !== existing.client_name.toLowerCase()) {
-            const nameConflict = await prisma.client.findFirst({
-                where: {
-                    client_name: { equals: clientName, mode: 'insensitive' },
-                    id: { not: id }, // exclude the record being updated
-                },
-                select: { id: true },
-            });
-            if (nameConflict) throw new BadRequestError(ErrorMessages.CLIENT.DUPLICATE_CLIENT_NAME);
+            if (abnConflict) {
+                throw new BadRequestError(ErrorMessages.CLIENT.DUPLICATE_ABN);
+            }
         }
 
         // ── 3. Atomic transaction: update Client + sync User.name if clientName changed ──
         try {
             const updatedClient = await prisma.$transaction(async (tx) => {
 
-                // Keep User.name in sync when clientName changes
-                if (clientName !== undefined) {
+                if (
+                    clientName !== undefined &&
+                    clientName !== existing.client_name
+                ) {
                     await tx.user.update({
                         where: { id: existing.user_id },
-                        data: { name: clientName },
+                        data: { name: clientName.trim() },
                     });
                 }
+
 
                 // Always update the Client row, include user in return
                 const client = await tx.client.update({
@@ -252,7 +242,7 @@ export default class AdminCrmService implements IAdminCrmService {
                 });
 
                 return client;
-            }, { maxWait: 10000, timeout: 20000 });
+            }, { maxWait: constant.TX_MAX_WAIT, timeout: constant.TX_TIMEOUT });
 
             // ── 4. Fire-and-forget audit log ───────────────────────────────────────────
             auditService.logWithRetry({
@@ -288,6 +278,7 @@ export default class AdminCrmService implements IAdminCrmService {
         if (!client) throw new NotFoundError(ErrorMessages.CLIENT.CLIENT_NOT_FOUND);
         return client;
     }
+
     // ─── Get with Pagination ─────────────────────────────────────────────────
     public async getClients(query: IGetClientsQuery): Promise<{
         data: (Client & { user: { id: number; email: string; name: string | null } })[],
@@ -295,18 +286,15 @@ export default class AdminCrmService implements IAdminCrmService {
         totalPending: number
     }> {
 
-        const page = query.page ?? constant.PAGINATION.DEFAULT_PAGE;
-        const limit = query.limit ?? constant.PAGINATION.DEFAULT_LIMIT;
-        const skip = (page - 1) * limit;
-
+        const { skip, page, limit } = getPagination(query)
         const where: Prisma.ClientWhereInput = {};
 
         if (query.status) {
             where.status = query.status as PrismaClientStatus;
         }
+        const search = query.search?.trim();
 
-        if (query.search) {
-            const search = query.search.trim();
+        if (search) {
             where.OR = [
                 { client_code: { contains: search, mode: 'insensitive' } },
                 { client_name: { contains: search, mode: 'insensitive' } },
@@ -338,6 +326,35 @@ export default class AdminCrmService implements IAdminCrmService {
             pagination: { total, page, limit, hasNext, hasPrevious },
             totalPending,
         };
+    }
+
+    // ─── Get All Clients (Basic Info) ──────────────────────────────────────
+    public async getAllClients(): Promise<{ id: number; client_name: string; phone: string | null; client_code: string; email: string }[]> {
+        const clients = await prisma.client.findMany({
+            where: {
+                status: PrismaClientStatus.active
+            },
+            select: {
+                id: true,
+                client_name: true,
+                phone: true,
+                client_code: true,
+                user: {
+                    select: {
+                        email: true
+                    }
+                }
+            },
+            orderBy: { client_name: 'asc' }
+        });
+
+        return clients.map((client) => ({
+            id: client.id,
+            client_name: client.client_name,
+            phone: client.phone,
+            client_code: client.client_code,
+            email: client.user.email
+        }));
     }
 
 

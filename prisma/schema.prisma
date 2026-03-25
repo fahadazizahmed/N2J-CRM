@@ -36,6 +36,12 @@ enum ClientStatus {
   @@map("client_status")
 }
 
+enum ContractType {
+  client
+  supplier
+}
+
+
 enum TipStatus {
   pending
   active
@@ -54,16 +60,24 @@ enum ContractStatus {
   @@map("contract_status")
 }
 
+enum ApprovalStatus {
+  pendingReview
+  approved
+  conditionallyApproved
+  rejected
+  @@map("approval_status")
+}
+
 enum BillingType {
-  per_tonne
-  per_load
+  perTonne
+  perLoad
   hourly
   fixed
 }
 
 enum TollHandling {
   included
-  pass_through
+  passThrough
 }
 
 enum SequenceEntity {
@@ -72,6 +86,7 @@ enum SequenceEntity {
   INVOICE
   TIPPER
   VEHICLE
+  JOB
 }
 
 // ─── Core Models ────
@@ -176,6 +191,7 @@ model Client {
   updated_at DateTime     @updatedAt
 
   contracts ClientContract[]
+  jobs      Job[]
 
   @@index([status])
   @@map("clients")
@@ -205,29 +221,33 @@ model TipCompany {
 model ClientContract {
   id Int @id @default(autoincrement())
 
-  // ─── Client Relation ───
-  client_id Int
-  client    Client @relation(fields: [client_id], references: [id], onDelete: Restrict)
+  client_id Int?
+  client    Client? @relation(fields: [client_id], references: [id])
 
-  // ─── Identity ───
-  contract_number        String  @unique
-  contract_title         String?
+  company_name String
+  abn          String?
+  address      String?
+  phone        String?
+  country_code String?
+
+  contract_number String @unique
+  contract_title  String?
+  contract_type   ContractType @default(client)
+  email           String?
+
   contract_contact_name  String?
   contract_contact_email String?
   contract_contact_phone String?
 
-  // ─── Lifecycle ───
-  start_date DateTime
-  end_date   DateTime
+  start_date DateTime?
+  end_date   DateTime?
   status     ContractStatus @default(draft)
+  approval_status ApprovalStatus @default(pendingReview)
+  approval_reason String?
 
-  // ─── Financial Override ───
   credit_terms_override CreditTerms?
 
-  // ─── Documents / Notes ───
-  documents     ClientContractDocument[]
   special_terms String?
-  rates         ClientContractRate[]
 
   // ─── Internal Management ───
   contract_manager_id Int?
@@ -237,12 +257,16 @@ model ClientContract {
   created_by Int
   creator    User @relation("ContractCreator", fields: [created_by], references: [id], onDelete: Restrict)
 
+  documents ClientContractDocument[]
+  rates     ClientContractRate[]
+  jobs      Job[]
+
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
   @@index([client_id])
   @@index([status])
-  @@map("client_contracts")
+  @@index([abn])
 }
 
 model ClientContractDocument {
@@ -316,14 +340,13 @@ model Vehicle {
   driver_id Int?
   driver    Driver? @relation("VehicleAssignedDriver", fields: [driver_id], references: [id], onDelete: SetNull)
 
-  assigned_drivers Driver[] @relation("DriverAssignedVehicle")
-
   mileage           Int?
   last_service_date DateTime?
   service_mileage   Int?
 
   media VehicleMedia[]
-created_by Int? // admin who created vehicle
+  created_by Int? // admin who created vehicle
+  jobs       Job[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -395,18 +418,6 @@ model VehicleMedia {
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 enum DriverStatus {
   active
   inactive
@@ -418,11 +429,7 @@ enum DriverStatus {
   @@map("driver_status")
 }
 
-  
-
-
-
-enum DriverType {
+  enum DriverType {
   inHouse
   subcontractor
   casual
@@ -479,10 +486,6 @@ model Driver {
   license_class  LicenseClass?
   license_expiry DateTime?
 
-  // optional vehicle assignment
-  vehicle_id Int?
-  vehicle    Vehicle? @relation("DriverAssignedVehicle", fields: [vehicle_id], references: [id], onDelete: SetNull)
-
   // GPS tracking for mobile app
   current_latitude     Float?
   current_longitude    Float?
@@ -498,8 +501,8 @@ model Driver {
   created_at     DateTime         @default(now())
   updated_at     DateTime         @updatedAt
   DriverLocation DriverLocation[]
+  jobs           Job[]
 
-  @@index([vehicle_id])
   @@map("drivers")
 }
 
@@ -555,4 +558,69 @@ model DriverLocation {
 
   @@index([driver_id])
   @@map("driver_locations")
+}
+
+// ─── Job ────
+
+enum JobStatus {
+  scheduled
+  inProgress
+  completed
+  cancelled
+
+  @@map("job_status")
+}
+
+enum JobPriority {
+  high
+  normal
+  low
+  urgent
+
+  @@map("job_priority")
+}
+
+enum QuantityUnit {
+  tonnes
+  load
+
+  @@map("quantity_unit")
+}
+
+model Job {
+  id              Int      @id @default(autoincrement())
+  job_number      String   @unique
+
+  client_id       Int
+  client          Client   @relation(fields: [client_id], references: [id])
+
+  contract_id     Int?
+  contract        ClientContract? @relation(fields: [contract_id], references: [id])
+
+  vehicle_id      Int
+  vehicle         Vehicle  @relation(fields: [vehicle_id], references: [id])
+
+  driver_id       Int
+  driver          Driver   @relation(fields: [driver_id], references: [id])
+
+  pick_up_address String
+  entry_date      DateTime
+  delivery_date   DateTime
+  material        String
+  quantity        Float
+  quantity_unit   QuantityUnit
+  rate            Float
+  billing_type    BillingType
+  notes           String?
+
+  priority        JobPriority
+  status          JobStatus @default(scheduled)
+
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  @@index([client_id])
+  @@index([vehicle_id])
+  @@index([driver_id])
+  @@map("jobs")
 }

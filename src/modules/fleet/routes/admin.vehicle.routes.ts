@@ -5,7 +5,7 @@ import { validateRequest } from '../../../middlewares';
 import { authentication } from '../../../middlewares/authentication';
 import { userPermissionGuard } from '../../../middlewares/user-permission-guard';
 import constant from '../../../common/constant/constant';
-import { createVehicleValidationRules, updateVehicleValidationRules, uploadVehicleMediaValidationRules, getVehiclesValidationRules, assignDriverValidationRules } from '../validators/admin.vehicle.validator';
+import { createVehicleValidationRules, updateVehicleValidationRules, uploadVehicleMediaValidationRules, getVehiclesValidationRules } from '../validators/admin.vehicle.validator';
 import { uploadVehicleMediaDocs } from '../helper';
 
 const router = express.Router();
@@ -44,32 +44,6 @@ router.get(
     authentication,
     userPermissionGuard([constant.ROLES.ADMIN]),
     controller.getVehicleTypes
-);
-
-
-// use by driver
-router.get(
-    routes.Admin.VEHICLE.GET_BASIC_VEHICLES,
-    authentication,
-    userPermissionGuard([constant.ROLES.ADMIN]),
-    controller.getAllActiveIdleVehicles
-);
-
-router.get(
-    routes.Admin.VEHICLE.GET_VEHICLES_WITH_DRIVER_DETAILS,
-    authentication,
-    userPermissionGuard([constant.ROLES.ADMIN]),
-    controller.getVehiclesWithDriverDetails
-);
-
-
-router.post(
-    routes.Admin.VEHICLE.ASSIGN_DRIVER,
-    authentication,
-    userPermissionGuard([constant.ROLES.ADMIN]),
-    assignDriverValidationRules(),
-    validateRequest,
-    controller.assignDriver
 );
 
 router.put(

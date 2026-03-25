@@ -4,8 +4,8 @@ import { NotFoundError } from '../../../errors/not-found-error';
 import { auditService } from '../../../services/audit.service';
 import constant from '../../../common/constant/constant';
 import ErrorMessages from '../../../common/constant/errors';
-import { ICreateContractDTO, IUpdateContractDTO, IUpdateContractStatusDTO, IGetContractsQuery } from '../dto/contract.dto';
-import { ClientContract, ClientStatus, ContractStatus, GstStatus, SequenceEntity, Prisma, ClientContractRate, } from '../../../../generated/prisma';
+import { ICreateContractDTO, IUpdateContractDTO, IUpdateContractStatusDTO, IGetContractsQuery, IUpdateContractApprovalStatusDTO } from '../dto/contract.dto';
+import { ClientContract, ClientStatus, ContractStatus, GstStatus, SequenceEntity, Prisma, ClientContractRate, ContractType, TollHandling, ApprovalStatus, } from '../../../../generated/prisma';
 import { generateContractNumber } from '../helper';
 import InfoMessages from '../../../common/constant/messages';
 import { generateEntityCode, normalizeBlobName } from '../../../helper/helper.method';
@@ -31,6 +31,8 @@ export interface IAdminContractService {
     createContract(dto: ICreateContractDTO, actorId: number | null): Promise<ClientContract>;
     updateContract(id: number, dto: IUpdateContractDTO, actorId: number | null): Promise<ClientContract>;
     updateContractStatus(id: number, dto: IUpdateContractStatusDTO, actorId: number | null): Promise<ClientContract>;
+    updateContractApprovalStatus(id: number, dto: IUpdateContractApprovalStatusDTO, actorId: number | null): Promise<ClientContract>;
+
     uploadContractDocs(contractId: number, clientId: number, file: any, documentName: string): Promise<any>;
     getContractById(id: number): Promise<any>;
     getContracts(query: IGetContractsQuery): Promise<{
@@ -55,6 +57,7 @@ export interface IAdminContractService {
         actorId: number | null
     ): Promise<ClientContractRate>
     getRates(contractId: number): Promise<ClientContractRate[]>
+    getActiveSupplierContracts(): Promise<Partial<ClientContract>[]>
 }
 
 export default class AdminContractService implements IAdminContractService {
@@ -63,104 +66,56 @@ export default class AdminContractService implements IAdminContractService {
         dto: ICreateContractDTO,
         actorId: number | null
     ): Promise<ClientContract> {
-        const {
-            clientId,
-            contractTitle,
-            startDate,
-            endDate,
-            creditTermsOverride,
-            specialTerms,
-            contractManagerId,
-            contractContactName,
-            contractContactEmail,
-            contractContactPhone } = dto;
 
-        // ── 1. Validate Client Exists and Get Default Credit Terms ──
-        const client = await prisma.client.findUnique({
-            where: { id: clientId },
-            select: { id: true, credit_terms: true, status: true },
-        });
+        try {
+            const { companyName, abn, address, phone, countryCode, contractType, email } = dto;
 
-        if (!client) {
-            throw new NotFoundError(ErrorMessages.CLIENT.CLIENT_NOT_FOUND);
-        }
+            const contract = await prisma.$transaction(async (tx) => {
 
-        if (client.status !== ClientStatus.active) {
-            throw new BadRequestError(ErrorMessages.CLIENT.CLIENT_NOT_ACTIVE);
-        }
+                const contractNumber = await generateEntityCode({
+                    tx,
+                    entity: SequenceEntity.CONTRACT,
+                    prefix: constant.CODE_PREFIX.CONTRACT,
+                });
 
-        // ── 3. Handle Contract Manager defaults & admin role check ──
-        let managerIdToUse = contractManagerId;
+                const newContract = await tx.clientContract.create({
+                    data: {
+                        company_name: companyName,
+                        contract_number: contractNumber,
+                        abn: abn,
+                        address: address ?? null,
+                        phone: phone ?? null,
+                        country_code: countryCode ?? null,
+                        created_by: actorId,
+                        status: ContractStatus.draft,
+                        contract_type: contractType ? contractType : ContractType.client,
+                        email: email,
+                    },
+                });
+                return newContract;
+            }, { maxWait: constant.TX_MAX_WAIT, timeout: constant.TX_TIMEOUT });
 
-
-        // Provided, so we must check if manager is admin
-        const manager = await prisma.user.findUnique({
-            where: { id: managerIdToUse },
-            include: { roles: true },
-        });
-
-        if (!manager) {
-            throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Contract manager'))
-        }
-
-        if (manager.status !== 1) {
-            throw new NotFoundError(ErrorMessages.CONTRACT.CONTRACT_MANAGER_NOT_ACTIVE);
-        }
-
-        const isAdmin = manager.roles.some((r) => r.name.toLowerCase() === constant.ROLES.ADMIN);
-        if (!isAdmin) {
-            throw new BadRequestError(ErrorMessages.CONTRACT.INVALID_CONTRACT_MANAGER);
-        }
-
-
-        // ── 4. Set final credit terms ──
-        const finalCreditTerms = creditTermsOverride || client.credit_terms;
-
-        // ── 5. Create the Contract and Audit Log in a Transaction ──
-        const contract = await prisma.$transaction(async (tx) => {
-
-            const contractNumber = await generateEntityCode({
-                tx,
-                entity: SequenceEntity.CONTRACT,
-                prefix: constant.CODE_PREFIX.CONTRACT,
-            });
-
-
-            const newContract = await tx.clientContract.create({
-                data: {
-                    client_id: clientId,
-                    contract_number: contractNumber,
-                    contract_title: contractTitle,
-                    start_date: new Date(startDate),
-                    end_date: new Date(endDate),
-                    credit_terms_override: finalCreditTerms,
-                    special_terms: specialTerms,
-                    contract_manager_id: contractManagerId,
-                    contract_contact_name: contractContactName,
-                    contract_contact_email: contractContactEmail,
-                    contract_contact_phone: contractContactPhone,
-                    created_by: actorId,
-                    status: ContractStatus.draft,
+            auditService.logWithRetry({
+                actor_id: actorId,
+                action: constant.AUDIT_LOG_ACTION.CREATE,
+                entity_type: constant.ENTITY_TYPE.CONTRACT,
+                entity_id: contract.id,
+                metadata: {
+                    client_id: contract.client_id,
+                    contract_number: contract.contract_number,
+                    action: InfoMessages.LOGGER_MESSAGE.CONTRACT_GENERATE_INFOT_CREATED_SUCCESSFULLY
                 },
-            });
-            return newContract;
-        }, { maxWait: 10000, timeout: 20000 });
+            })
+            return contract;
 
-        // Fire-and-forget audit log
-        auditService.logWithRetry({
-            actor_id: actorId,
-            action: constant.AUDIT_LOG_ACTION.CREATE,
-            entity_type: constant.ENTITY_TYPE.CONTRACT,
-            entity_id: contract.id,
-            metadata: {
-                client_id: contract.client_id,
-                contract_number: contract.contract_number,
-                contractManagerId: contractManagerId,
-                action: InfoMessages.LOGGER_MESSAGE.CONTRACT_GENERATE_INFOT_CREATED_SUCCESSFULLY
-            },
-        })
-
-        return contract;
+        } catch (error: any) {
+            if (error.code === 'P2002') {
+                const target: string[] = error.meta?.target || [];
+                if (target.includes('abn')) throw new BadRequestError(ErrorMessages.TIP_COMPANY.DUPLICATE_ABN);
+                if (target.includes('tip_name')) throw new BadRequestError(ErrorMessages.TIP_COMPANY.DUPLICATE_NAME);
+            }
+            throw error;
+        }
     }
 
     public async updateContract(
@@ -177,47 +132,30 @@ export default class AdminContractService implements IAdminContractService {
             throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Contract'));
         }
 
-        // 2. Guard: draft-only fields cannot be edited once the contract is no longer in draft status
+        // // 2. Guard: draft-only fields cannot be edited once the contract is no longer in draft status
         const draftOnlyFieldsProvided =
             dto.startDate !== undefined ||
             dto.endDate !== undefined ||
-            dto.creditTermsOverride !== undefined ||
+            // dto.creditTermsOverride !== undefined ||
             dto.specialTerms !== undefined;
 
         if (draftOnlyFieldsProvided && existingContract.status !== ContractStatus.draft) {
             throw new BadRequestError(ErrorMessages.CONTRACT.DRAFT_ONLY_FIELDS);
         }
-
-        // 3. Handle Contract Manager defaults & admin role check
-        if (dto.contractManagerId) {
-            const manager = await prisma.user.findUnique({
-                where: { id: dto.contractManagerId },
-                include: { roles: true },
-            });
-
-            if (!manager) {
-                throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Contract manager'))
-            }
-
-            if (manager.status !== 1) {
-                throw new NotFoundError(ErrorMessages.CONTRACT.CONTRACT_MANAGER_NOT_ACTIVE);
-            }
-
-            const isAdmin = manager.roles.some((r) => r.name.toLowerCase() === constant.ROLES.ADMIN);
-            if (!isAdmin) {
-                throw new BadRequestError(ErrorMessages.CONTRACT.INVALID_CONTRACT_MANAGER);
-            }
-        }
-
         // 4. Update the Contract and Audit Log in a Transaction
         const updatedContract = await prisma.$transaction(async (tx) => {
             const updateData: any = {};
+            if (dto.address !== undefined) updateData.address = dto.address;
+            if (dto.phone !== undefined) updateData.phone = dto.phone;
+            if (dto.countryCode !== undefined) updateData.country_code = dto.countryCode;
+            if (dto.abn !== undefined) updateData.abn = dto.abn;
+            if (dto.companyName !== undefined) updateData.company_name = dto.companyName;
+            if (dto.email !== undefined) updateData.email = dto.email;
             if (dto.contractTitle !== undefined) updateData.contract_title = dto.contractTitle;
             if (dto.startDate !== undefined) updateData.start_date = new Date(dto.startDate);
             if (dto.endDate !== undefined) updateData.end_date = new Date(dto.endDate);
-            if (dto.creditTermsOverride !== undefined) updateData.credit_terms_override = dto.creditTermsOverride;
             if (dto.specialTerms !== undefined) updateData.special_terms = dto.specialTerms;
-            if (dto.contractManagerId !== undefined) updateData.contract_manager_id = dto.contractManagerId;
+            if (dto.contractType !== undefined) updateData.contract_type = dto.contractType;
             if (dto.contractContactName !== undefined) updateData.contract_contact_name = dto.contractContactName;
             if (dto.contractContactEmail !== undefined) updateData.contract_contact_email = dto.contractContactEmail;
             if (dto.contractContactPhone !== undefined) updateData.contract_contact_phone = dto.contractContactPhone;
@@ -227,7 +165,7 @@ export default class AdminContractService implements IAdminContractService {
                 where: { id },
                 data: updateData,
             });
-        }, { maxWait: 10000, timeout: 20000 });
+        }, { maxWait: constant.TX_MAX_WAIT, timeout: constant.TX_MAX_WAIT });
 
         // Fire-and-forget audit log
         auditService.logWithRetry({
@@ -262,6 +200,7 @@ export default class AdminContractService implements IAdminContractService {
                 contract_number: true,
                 client_id: true,
                 start_date: true,
+                end_date: true,
                 client: {
                     select: {
                         id: true,
@@ -280,37 +219,31 @@ export default class AdminContractService implements IAdminContractService {
 
         // 2. Run eligibility checks ONLY when activating the contract
         if (dto.status === ContractStatus.active) {
-            const client = existing.client;
-
-            // Client must be active
-            if (client.status !== ClientStatus.active) {
-                throw new BadRequestError(ErrorMessages.CLIENT.CLIENT_NOT_ACTIVE);
+            if (!existing.start_date) {
+                throw new BadRequestError(ErrorMessages.CONTRACT_RATE.START_DATE_MUST_GIVEN);
             }
 
-            // Client GST must be approved
-            if (client.gst_status !== GstStatus.approved) {
-                throw new BadRequestError(ErrorMessages.CLIENT.CLIENT_GST_NOT_APPROVED);
-            }
-
-            // Client credit score must meet the threshold
-            if (client.credit_score < constant.CREDIT_SCORE.THRESHOLD) {
-                throw new BadRequestError(
-                    ErrorMessages.CLIENT.CLIENT_CREDIT_SCORE_BELOW_THRESHOLD(
-                        client.credit_score,
-                        constant.CREDIT_SCORE.THRESHOLD
-                    )
-                );
+            // Contract end date must be in the future — no point activating an already-expired contract
+            if (existing.end_date) {
+                const today = new Date();
+                today.setUTCHours(0, 0, 0, 0);
+                const endDate = new Date(existing.end_date);
+                endDate.setUTCHours(0, 0, 0, 0);
+                if (endDate < today) {
+                    throw new BadRequestError(
+                        'Contract cannot be activated because its end date is in the past. Please update the end date to a future date.'
+                    );
+                }
             }
 
             // Contract must have at least one rate before activation
             const rateCount = await prisma.clientContractRate.count({
                 where: { contract_id: id },
             });
+
             if (rateCount === 0) {
                 throw new BadRequestError(ErrorMessages.CONTRACT_RATE.NO_RATES);
             }
-
-
 
         }
         //  5. Update status only
@@ -335,6 +268,73 @@ export default class AdminContractService implements IAdminContractService {
         return updated;
     }
 
+
+    // ─── Update Contract Approval Status ────────────────────────────────
+    public async updateContractApprovalStatus(
+        id: number,
+        dto: IUpdateContractApprovalStatusDTO,
+        actorId: number | null
+    ): Promise<ClientContract> {
+        // 1. Validate contract exists
+        const existing = await prisma.clientContract.findUnique({
+            where: { id },
+            select: {
+                id: true,
+                status: true,
+                approval_status: true,
+                contract_number: true,
+                client_id: true,
+                start_date: true,
+                end_date: true,
+                client: {
+                    select: {
+                        id: true,
+                        status: true,
+                        gst_status: true,
+                        credit_score: true,
+                    },
+                },
+            },
+        });
+
+        if (!existing) {
+            throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Contract'));
+        }
+
+        // 2. Build update payload — include reason only when provided
+        const updateData: { approval_status: typeof dto.status; approval_reason?: string | null } = {
+            approval_status: dto.status,
+        };
+
+        if (dto.reason !== undefined) {
+            updateData.approval_reason = dto.reason ?? null;
+        }
+
+        // 3. Persist the changes
+        const updated = await prisma.clientContract.update({
+            where: { id },
+            data: updateData,
+        });
+
+        // 4. Fire-and-forget audit log
+        auditService.logWithRetry({
+            actor_id: actorId,
+            action: constant.AUDIT_LOG_ACTION.UPDATE,
+            entity_type: constant.ENTITY_TYPE.CONTRACT,
+            entity_id: id,
+            metadata: {
+                contract_number: existing.contract_number,
+                previous_approval_status: existing.approval_status,
+                new_approval_status: dto.status,
+                ...(dto.reason ? { reason: dto.reason } : {}),
+            },
+        });
+
+        return updated;
+    }
+
+
+
     public async uploadContractDocs(contractId: number, clientId: number, file: any, documentName: string): Promise<any> {
         // Validate contract exists
         const existingContract = await prisma.clientContract.findUnique({
@@ -346,22 +346,11 @@ export default class AdminContractService implements IAdminContractService {
             throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Contract'));
         }
 
-        if (existingContract.client_id !== clientId) {
-            throw new BadRequestError('Contract does not belong to the specified client');
-        }
-
-        const client = await prisma.client.findUnique({
-            where: { id: clientId },
-            select: { id: true, client_code: true }
-        });
-
-        if (!client) {
-            throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Client'));
-        }
-        const customBlobName = `contract/${client.client_code}/${existingContract.contract_number}/docs/${file.filename}`;
+        const customBlobName = constant.MEDIA_PATHS.CONTRACT_MEDIA(existingContract.contract_number, file.filename);
 
         // File url to return
         this.imageService.upload(file.path, customBlobName);
+
 
         // Store the document path in the new ClientContractDocument table
         const document = await prisma.clientContractDocument.create({
@@ -369,10 +358,13 @@ export default class AdminContractService implements IAdminContractService {
                 contract_id: contractId,
                 document_path: customBlobName,
                 file_name: documentName,
+
+
             },
         });
+        let doc = { ...document, document_url: await this.imageService.getImageUrl(customBlobName), }
 
-        return { document };
+        return { doc };
     }
 
     // ─── Get Contract By ID ───────────────────────────────────────────────
@@ -410,10 +402,15 @@ export default class AdminContractService implements IAdminContractService {
         if (query.status) {
             where.status = query.status as ContractStatus;
         }
+        if (query.approval) {
+            where.approval_status = query.approval as ApprovalStatus;
+        }
 
-        // ─ Filter by clientId ──────────────────────────────────────
-        if (query.clientId) {
-            where.client_id = query.clientId;
+        // ─ Filter by contract type ─────────────────────────────────────
+        // If a specific type is passed (e.g. 'supplier' or 'client'), filter by it.
+        // If nothing is passed, return all contracts (both supplier and client).
+        if (query.contractType) {
+            where.contract_type = query.contractType as ContractType;
         }
 
         // ─ Search: contract number, title, contact name, email, client name ─
@@ -424,9 +421,11 @@ export default class AdminContractService implements IAdminContractService {
                 { contract_title: { contains: search, mode: 'insensitive' } },
                 { contract_contact_name: { contains: search, mode: 'insensitive' } },
                 { contract_contact_email: { contains: search, mode: 'insensitive' } },
-                { client: { client_name: { contains: search, mode: 'insensitive' } } },
-                { client: { client_code: { contains: search, mode: 'insensitive' } } },
-                { client: { user: { email: { contains: search, mode: 'insensitive' } } } },
+                { address: { contains: search, mode: 'insensitive' } },
+                { company_name: { contains: search, mode: 'insensitive' } },
+                { abn: { contains: search, mode: 'insensitive' } },
+                { email: { contains: search, mode: 'insensitive' } },
+                { phone: { contains: search, mode: 'insensitive' } },
             ];
         }
 
@@ -439,7 +438,7 @@ export default class AdminContractService implements IAdminContractService {
                 include: contractFullInclude,
             }),
             prisma.clientContract.count({ where }),
-            prisma.clientContract.count({ where: { status: ContractStatus.draft } }),
+            prisma.clientContract.count({ where: { status: ContractStatus.draft, contract_type: query.contractType } }),
         ]);
 
         const hasNext = (skip + data.length) < total;
@@ -450,6 +449,23 @@ export default class AdminContractService implements IAdminContractService {
             pagination: { total, page, limit, hasNext, hasPrevious },
             totalDraft,
         };
+    }
+
+    public async getActiveSupplierContracts(): Promise<Partial<ClientContract>[]> {
+        return prisma.clientContract.findMany({
+            where: {
+                status: ContractStatus.active,
+                contract_type: ContractType.supplier
+            },
+            select: {
+                id: true,
+                contract_number: true,
+                company_name: true,
+                email: true,
+                phone: true,
+            },
+            orderBy: { company_name: 'asc' },
+        });
     }
 
 
@@ -483,6 +499,7 @@ export default class AdminContractService implements IAdminContractService {
                 { effective_to: { gte: effectiveFrom } },
             ],
         };
+
 
         if (excludeRateId) {
             overlapCondition.id = { not: excludeRateId };
@@ -519,6 +536,7 @@ export default class AdminContractService implements IAdminContractService {
         if (contract.status !== ContractStatus.draft) {
             throw new BadRequestError(ErrorMessages.CONTRACT_RATE.DRAFT_NOT_EDITABLE_AFTER_ACTIVATE);
         }
+        if (!contract.start_date || !contract.end_date) throw new BadRequestError(ErrorMessages.CONTRACT_RATE.DATE_MUST_GIVEN);
 
         const effectiveFrom = this.toDateOnly(new Date(dto.effectiveFrom));
         const contractStart = this.toDateOnly(contract.start_date);
@@ -536,7 +554,7 @@ export default class AdminContractService implements IAdminContractService {
         // 4. Overlap check — no other rate on this contract can cover effectiveFrom
         await this.assertNoOverlap(contractId, effectiveFrom, null, null);
 
-        // // 5. Insert the rate
+        // 5. Insert the rate
         const rate = await prisma.clientContractRate.create({
             data: {
                 contract_id: contractId,
@@ -544,7 +562,7 @@ export default class AdminContractService implements IAdminContractService {
                 rate: dto.rate,
                 material_type: dto.materialType ?? null,
                 minimum_charge: dto.minimumCharge ?? null,
-                toll_handling: dto.tollHandling ?? 'included',
+                toll_handling: dto.tollHandling ?? TollHandling.included,
                 effective_from: effectiveFrom,
                 effective_to: null, // open-ended — this is the latest rate
             },
@@ -596,6 +614,7 @@ export default class AdminContractService implements IAdminContractService {
         if (!rate) {
             throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Contract Rate'));
         }
+        if (!contract.start_date || !contract.end_date) throw new BadRequestError(ErrorMessages.CONTRACT_RATE.DATE_MUST_GIVEN);
 
         const effectiveFrom = this.toDateOnly(new Date(dto.effectiveFrom));
         const contractStart = this.toDateOnly(contract.start_date);

@@ -13,6 +13,7 @@ import crmRouter from '../modules/crm/routes';
 import tipRouter from '../modules/tip-company/routes';
 import contractRouter from '../modules/contract/routes';
 import fleetRouter from '../modules/fleet/routes';
+import JobRouter from '../modules/jobs/routes';
 import cookieParser from "cookie-parser";
 
 export default ({ app }: { app: express.Application }) => {
@@ -45,7 +46,7 @@ export default ({ app }: { app: express.Application }) => {
    * @TODO Explain why they are here
    */
   app.get('/status', (req: Request, res: Response) => {
-    res.status(200).end();
+    res.status(200).send(`${config.SOFTWARE_NAME} version 2 is running`);
   });
 
   app.head('/status', (req: Request, res: Response) => {
@@ -74,6 +75,16 @@ export default ({ app }: { app: express.Application }) => {
   }))
 
 
+
+  // app.use(
+  //   cors({
+  //     origin: "https://stage.frontend.nja.i2n.io",
+  //     credentials: true,
+  //   })
+  // );
+
+
+
   app.use(bodyParser.json());
 
   // Load all API routes
@@ -82,6 +93,7 @@ export default ({ app }: { app: express.Application }) => {
   app.use(config.api.prefix, tipRouter);
   app.use(config.api.prefix, contractRouter);
   app.use(config.api.prefix, fleetRouter);
+  app.use(config.api.prefix, JobRouter);
 
   app.all('*', async (req, res) => {
     throw new NotFoundError(null);

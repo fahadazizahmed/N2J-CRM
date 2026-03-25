@@ -5,8 +5,8 @@ import { validateRequest } from '../../../middlewares';
 import {
     createClientValidationRules,
     updateClientValidationRules,
-    getClientByIdValidationRules,
-    getClientsValidationRules
+    getClientsValidationRules,
+    IdValidationRules
 } from '../validators/admin.validator';
 import { authentication } from '../../../middlewares/authentication';
 import { userPermissionGuard } from '../../../middlewares/user-permission-guard';
@@ -30,6 +30,7 @@ router.put(
     routes.Admin.UPDATE_CLIENT,
     authentication,
     userPermissionGuard([constant.ROLES.ADMIN]),
+    IdValidationRules(),
     updateClientValidationRules(),
     validateRequest,
     controller.updateClient
@@ -39,7 +40,7 @@ router.get(
     routes.Admin.GET_CLIENT,
     authentication,
     userPermissionGuard([constant.ROLES.ADMIN]),
-    getClientByIdValidationRules(),
+    IdValidationRules(),
     validateRequest,
     controller.getClientById
 );
@@ -51,6 +52,13 @@ router.get(
     getClientsValidationRules(),
     validateRequest,
     controller.getClients
+);
+
+router.get(
+    routes.Admin.GET_ALL_CLIENTS,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    controller.getAllClients
 );
 
 

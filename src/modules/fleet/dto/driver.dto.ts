@@ -1,4 +1,4 @@
-import { DriverType, LicenseClass } from '../../../../generated/prisma';
+import { DriverStatus, DriverType, LicenseClass } from '../../../../generated/prisma';
 
 export interface ICreateDriverDTO extends IAddDriverRateDTO {
     firstName: string;
@@ -13,9 +13,6 @@ export interface ICreateDriverDTO extends IAddDriverRateDTO {
     isMobileAccess?: boolean;
 
 }
-
-
-
 
 
 export interface IAddDriverRateDTO {
@@ -40,6 +37,7 @@ export interface IUpdateDriverDTO {
     hourlyRateWeekend?: number;
     nightRate?: number;
     nightRateWeekend?: number;
+    status?: DriverStatus;
 }
 
 export interface IAssignVehicleDTO {

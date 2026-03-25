@@ -53,6 +53,7 @@ const constant = {
   PAGINATION: {
     DEFAULT_PAGE: 1,
     DEFAULT_LIMIT: 10,
+    MAX_LIMIT: 100
   },
   CODE_PREFIX: {
     CLIENT: 'NJA-CL',
@@ -65,7 +66,10 @@ const constant = {
   },
   MEDIA_PATHS: {
     DRIVER_DOC: (driverId: number | string, documentType: string, filename: string) => `fleet/driver/${driverId}/docs/${documentType}/${filename}`,
-    VEHICLE_MEDIA: (registrationNumber: string, documentType: string, filename: string) => `fleet/vehicle/${registrationNumber}/docs/${documentType}/${filename}`
-  }
+    VEHICLE_MEDIA: (registrationNumber: string, documentType: string, filename: string) => `fleet/vehicle/${registrationNumber}/docs/${documentType}/${filename}`,
+    CONTRACT_MEDIA: (contractNumber: string,filename: string) => `contract/${contractNumber}/docs/${filename}`
+  },
+  TX_MAX_WAIT: 10000,
+  TX_TIMEOUT: 20000
 };
 export default constant;

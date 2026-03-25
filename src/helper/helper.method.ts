@@ -2,6 +2,7 @@
 import { parsePhoneNumberFromString, CountryCode } from 'libphonenumber-js';
 import fs from "fs";
 import { Prisma, SequenceEntity } from '../../generated/prisma';
+import constant from '../common/constant/constant';
 
 
 interface GenerateCodeOptions {
@@ -98,4 +99,16 @@ export async function generateEntityCode({
     const sequence = String(sequenceRow.last_no).padStart(3, '0');
 
     return `${prefix}-${year}-${sequence}`;
+}
+
+
+export const getPagination = (query: any) => {
+    const page = Math.max(1, query.page ?? constant.PAGINATION.DEFAULT_PAGE);
+    const limit = Math.min(
+        constant.PAGINATION.MAX_LIMIT,
+        Math.max(1, query.limit ?? constant.PAGINATION.DEFAULT_LIMIT)
+    );
+    const skip = (page - 1) * limit
+
+    return { page, limit, skip }
 }

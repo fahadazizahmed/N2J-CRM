@@ -31,6 +31,11 @@ export const createDriverValidationRules = () => {
                 return true;
             }),
 
+        body('countryCode')
+            .optional()
+            .isString()
+            .withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('countryCode')),
+
         body('vehicleId').optional()
             .isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID("Vehicle id"))
             .toInt(),
@@ -40,7 +45,7 @@ export const createDriverValidationRules = () => {
             .isIn(Object.values(DriverType)).withMessage('Invalid driver type'),
 
         body('licenseNumber')
-            .optional({ nullable: true }).isString().notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('License number')),
+            .optional({ checkFalsy: true }).isString().notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('License number')),
 
         body('licenseClass')
             .optional({ nullable: true })
@@ -51,10 +56,6 @@ export const createDriverValidationRules = () => {
             .isBoolean().withMessage('isMobileAccess must be a boolean')
             .toBoolean(),
         ...addDriverRateValidationRules()
-
-
-
-
     ];
 };
 
@@ -173,16 +174,6 @@ export const uploadDriverDocsValidationRules = (): ValidationChain[] => {
     ];
 };
 
-export const assignVehicleValidationRules = (): ValidationChain[] => [
-    param('id')
-        .notEmpty().withMessage(ErrorMessages.VALIDATION.REQURED_FILED_MISSING('Driver id'))
-        .isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID('Driver id'))
-        .toInt(),
-    body('vehicleId')
-        .notEmpty().withMessage(ErrorMessages.VALIDATION.REQURED_FILED_MISSING('Vehicle id'))
-        .isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID('Vehicle id'))
-        .toInt(),
-];
 
 
 

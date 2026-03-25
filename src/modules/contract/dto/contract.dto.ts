@@ -1,25 +1,56 @@
-import { CreditTerms, ContractStatus, BillingType, TollHandling } from '../../../../generated/prisma';
+import { CreditTerms, ContractStatus, BillingType, TollHandling, ContractType, ApprovalStatus } from '../../../../generated/prisma';
+
+
 
 export interface ICreateContractDTO {
-    clientId: number;
-    contractNumber: string;
+    companyName: string;             // → TipCompany.tip_name
+    abn?: string;                // → TipCompany.abn
+    address?: string;            // → TipCompany.address
+    phone?: string;              // → TipCompany.phone
+    countryCode?: string;        // → TipCompany.country_code
+    contractType?: ContractType;
+    email: string;
+}
+
+
+export interface IUpdateContractDTO {
     contractTitle?: string;
-    startDate: string;
-    endDate: string;
-    creditTermsOverride?: CreditTerms;
+    startDate?: string;
+    endDate?: string;
     specialTerms?: string;
     contractManagerId?: number;
     status?: ContractStatus;
     contractContactName?: string;
     contractContactEmail?: string;
     contractContactPhone?: string;
+    companyName: string;
+    email: string;
+    address?: string;
+    phone?: string;              // → TipCompany.phone
+    countryCode?: string;        // → TipCompany.country_code
+    abn?: string;
+    contractType?: ContractType;
 }
 
-export interface IUpdateContractDTO extends Partial<Omit<ICreateContractDTO, 'contractNumber' | 'clientId'>> { }
+
+
+
+
+
+
+
+
+
+// export interface IUpdateContractDTO extends Partial<Omit<ICreateContractDTO, 'contractNumber' | 'clientId'>> { }
 
 // ─── Update Status ──────────────────────────────────────────────────
 export interface IUpdateContractStatusDTO {
     status: ContractStatus;
+}
+
+export interface IUpdateContractApprovalStatusDTO {
+    status: ApprovalStatus;
+    reason?: string;
 }
 
 // ─── Query (paginated list) ───────────────────────────────────────────────────
@@ -29,6 +60,8 @@ export interface IGetContractsQuery {
     status?: ContractStatus;
     clientId?: number;
     search?: string;
+    approval?: ApprovalStatus;
+    contractType?: ContractType;
 }
 
 // ─── Contract Rate DTOs ───────────────────────────────────────────────────────

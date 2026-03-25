@@ -42,6 +42,13 @@ export default class AdminContractController {
         } catch (e: any) { throw new GenericError(e, `Error in updateContractStatus ${__filename}`); }
     };
 
+    updateContractApprovalStatus = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const contract = await this.adminContractService.updateContractApprovalStatus(Number(req.params.id), req.body, this.actorId(req));
+            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_UPDATED_SUCCESSFULLY('Contract approval status'), 200, contract);
+        } catch (e: any) { throw new GenericError(e, `Error in updateContractApprovalStatus ${__filename}`); }
+    };
+
     // POST /api/v1/admin/contract/upload-contract-docs
     uploadDocs = async (req: Request, res: Response): Promise<void> => {
         try {
@@ -71,6 +78,14 @@ export default class AdminContractController {
             const result = await this.adminContractService.getContracts(req.query as any);
             sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_GET_SUCCESSFULLY('Contracts'), 200, result);
         } catch (e: any) { throw new GenericError(e, `Error in getContracts ${__filename}`); }
+    };
+
+    // GET /api/v1/admin/contract/active-supplier-contracts
+    getActiveSupplierContracts = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const result = await this.adminContractService.getActiveSupplierContracts();
+            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_GET_SUCCESSFULLY('Active Supplier Contracts'), 200, result);
+        } catch (e: any) { throw new GenericError(e, `Error in getActiveSupplierContracts ${__filename}`); }
     };
 
 

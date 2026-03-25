@@ -55,8 +55,6 @@ const createDocUploader = (folder: string) =>
 
 export const uploadContractDocs = createDocUploader("contracts/docs").single("docs");
 
-
-
 export const toDateOnly = (date: any) => {
     return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
@@ -68,6 +66,17 @@ export const subOneDay = (date: any) => {
     d.setUTCDate(d.getUTCDate() - 1);
     return d;
 }
+
+
+
+
+
+
+
+
+
+
+
 
 
 

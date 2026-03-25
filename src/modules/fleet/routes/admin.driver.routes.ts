@@ -5,7 +5,7 @@ import { validateRequest } from '../../../middlewares/validate-request';
 import { authentication } from '../../../middlewares/authentication';
 import { userPermissionGuard } from '../../../middlewares/user-permission-guard';
 import constant from '../../../common/constant/constant';
-import { createDriverValidationRules, addDriverRateValidationRules, updateDriverValidationRules, getDriversValidationRules, uploadDriverDocsValidationRules, assignVehicleValidationRules } from '../validators/admin.driver.validator';
+import { createDriverValidationRules, addDriverRateValidationRules, updateDriverValidationRules, getDriversValidationRules, uploadDriverDocsValidationRules } from '../validators/admin.driver.validator';
 import { uploadDriverDocs } from '../helper';
 
 const router = express.Router();
@@ -39,21 +39,6 @@ router.get(
 );
 
 
-router.get(
-    routes.Admin.DRIVER.GET_DRIVERS_WITH_VEHICLE_DETAILS,
-    authentication,
-    userPermissionGuard([constant.ROLES.ADMIN]),
-    controller.getDriverWithVehicleDetails
-);
-
-router.post(
-    routes.Admin.DRIVER.ASSIGN_VEHICLE,
-    authentication,
-    userPermissionGuard([constant.ROLES.ADMIN]),
-    assignVehicleValidationRules(),
-    validateRequest,
-    controller.assignVehicle
-);
 
 router.post(
     routes.Admin.DRIVER.ADD_DRIVER_RATES,
@@ -96,34 +81,4 @@ router.get(
     validateRequest,
     controller.getDrivers
 );
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-router.get(
-    routes.Admin.DRIVER.GET_ALL_ACTIVE_NOT_ASSIGN_VEHICLE_DRIVERS,
-    authentication,
-    userPermissionGuard([constant.ROLES.ADMIN]),
-    controller.getAllActiveNotAssignVehiclesDrivers
-);
-
 export { router as adminDriverRouter };

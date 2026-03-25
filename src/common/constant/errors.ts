@@ -62,6 +62,7 @@ const ErrorMessages = {
     INVALID_CONTRACT_MANAGER: 'The specified contract manager must be an admin',
     CONTRACT_MANAGER_NOT_ACTIVE: "Contract manager is no more active",
     INVALID_DATE: (date: string) => `${date} must be a valid ISO8601 date`,
+    INVALID_CONTRACT_STATUS: 'Invalid contract status',
     DRAFT_ONLY_FIELDS: 'startDate, endDate, creditTermsOverride and specialTerms can only be edited on draft contracts',
   },
   CONTRACT_RATE: {
@@ -76,6 +77,9 @@ const ErrorMessages = {
     CANNOT_DELETE_ACTIVE_RATE: 'Cannot delete a rate that is currently active. Close it first by adding a new rate',
     EFFECTIVE_FROM_MUST_BE_FUTURE: 'effectiveFrom must be in the future or today for an active contract',
     NO_ACTIVE_RATE_ON_CONTRACT_START: 'No active rate found on contract start date',
+    DATE_MUST_GIVEN: 'Please specify the contract start and end dates in the Details tab before adding a rate.',
+    START_DATE_MUST_GIVEN: 'Please specify the contract start date before it can be activated.'
+
   },
   PAGINATION: {
 
@@ -91,6 +95,10 @@ const ErrorMessages = {
   FLEET: {
     VEHICLE_ALREADY_EXIST: 'Vehicle with this registration number already exists',
     INVALID_VEHICLE_STATUS: 'Invalid vehicle status',
+  },
+  JOB: {
+    INVALID_DATES: 'entry_date must be before delivery_date',
+
   }
 };
 

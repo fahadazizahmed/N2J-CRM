@@ -29,10 +29,6 @@ export default class SharedAuthService implements ISharedAuthService {
 	public async verifyTokenAndSetPassword(data: ISetPasswordDTO): Promise<{ message: string; user_id: number }> {
 		// 1. Verify Token Signature First
 
-
-
-
-
 		const decoded: any = isValidJWT(data.token, process.env.INVITE_SECRET as string);
 
 		if (!decoded || !decoded.id) {

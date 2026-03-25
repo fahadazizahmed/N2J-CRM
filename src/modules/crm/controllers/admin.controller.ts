@@ -42,6 +42,14 @@ export default class AdminCrmController {
         } catch (e: any) { throw new GenericError(e, `Error in getClients ${__filename}`); }
     };
 
+    // GET /api/v1/admin/client/get-all-clients
+    getAllClients = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const result = await this.adminCrmService.getAllClients();
+            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_GET_SUCCESSFULLY('Clients'), 200, result);
+        } catch (e: any) { throw new GenericError(e, `Error in getAllClients ${__filename}`); }
+    };
+
 
 
 }

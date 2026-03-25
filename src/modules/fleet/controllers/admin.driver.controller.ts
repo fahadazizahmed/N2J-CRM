@@ -84,29 +84,10 @@ export default class AdminDriverController {
     };
 
     // POST /api/v1/admin/fleet/driver/assign-vehicle/:id
-    assignVehicle = async (req: Request, res: Response): Promise<void> => {
-        try {
-            const driverId = parseInt(req.params.id as string, 10);
-            const updatedDriver = await this.adminDriverService.assignVehicle(driverId, req.body, this.actorId(req));
-            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_UPDATED_SUCCESSFULLY('Vehicle assignment'), 200, updatedDriver);
-        } catch (e: any) { throw new GenericError(e, `Error in assignVehicle ${__filename}`); }
-    };
 
 
 
-    getAllActiveNotAssignVehiclesDrivers = async (req: Request, res: Response): Promise<void> => {
-        try {
-            const result = await this.adminDriverService.getAllActiveNotAssignVehiclesDrivers();
-            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Basic Vehicles'), 200, result);
-        } catch (e: any) { throw new GenericError(e, `Error in getBasicVehicles ${__filename}`); }
-    };
 
-    getDriverWithVehicleDetails = async (req: Request, res: Response): Promise<void> => {
-        try {
-            const result = await this.adminDriverService.getDriverWithVehicleDetails();
-            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Drvier with vechiles'), 200, result);
-        } catch (e: any) { throw new GenericError(e, `Error in getVehiclesWithDriverDetails ${__filename}`); }
-    };
 
     // GET /api/v1/admin/driver/stats
     getDriverStats = async (req: Request, res: Response): Promise<void> => {

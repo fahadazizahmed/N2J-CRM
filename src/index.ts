@@ -1,5 +1,6 @@
 import express from 'express';
 import config from './config';
+import { scheduleContractExpiryJob } from './services/contract-expiry.job';
 
 // Start the server
 async function startServer() {
@@ -13,6 +14,8 @@ async function startServer() {
         🛡️  Server listening on port: ${config.port} 🛡️
         ################################################\x1b[0m
       `);
+      // Start background scheduled jobs to check contract expiry
+     // scheduleContractExpiryJob();
     });
 
     // Handle server errors

@@ -9,38 +9,34 @@ import { GstStatus, CreditTerms, ClientStatus } from '../../../../generated/pris
 // user_id is NOT in body — it comes from the JWT token automatically
 export const createClientValidationRules = (): ValidationChain[] => [
 
-
     body('clientName')
         .exists().withMessage(ErrorMessages.VALIDATION.KEY_MISSING('clientName')).bail()
         .notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('clientName')).bail()
-        .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('ciientName'))
+        .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('clientName'))
         .isLength({ min: constant.NAME.MIN_LENGTH, max: constant.NAME.MAX_LENGTH })
         .withMessage(
             ErrorMessages.AUTH.NAME_LENGTH_MAX(constant.NAME.MIN_LENGTH, constant.NAME.MAX_LENGTH)
         ),
 
     body('abn')
-        .exists().withMessage(ErrorMessages.VALIDATION.KEY_MISSING('ABN')).bail()
-        .notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('ABN')).bail()
+        .optional()
+        .isString()
+        .withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('ABN'))
         .bail()
-        .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('ABN'))
-        .bail()
-        .custom((value) => {
+        .custom(value => {
             if (!isValidABN(value)) {
                 throw new Error('Invalid ABN');
             }
             return true;
         }),
-
     body('address')
-        .exists().withMessage(ErrorMessages.VALIDATION.KEY_MISSING('address')).bail()
+        .optional()
         .notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('address')).bail()
         .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('address')),
 
 
-
     body('phone')
-        .exists().withMessage(ErrorMessages.VALIDATION.KEY_MISSING('phone')).bail()
+        .optional()
         .notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('phone')).bail()
         .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('phone'))
         .bail()
@@ -48,7 +44,7 @@ export const createClientValidationRules = (): ValidationChain[] => [
             const country = req.body.countryCode as CountryCode;
 
             if (!country) {
-                throw new Error('Country code is required');
+                throw new Error('countryCode is required when phone is provided');
             }
 
             if (!isValidPhone(value, country)) {
@@ -57,19 +53,21 @@ export const createClientValidationRules = (): ValidationChain[] => [
             return true;
         }),
 
-    body("email")
+    body('countryCode')
+        .optional()
+        .isString()
+        .withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('countryCode')),
+
+
+    body('email')
         .exists()
-        .withMessage(ErrorMessages.VALIDATION.KEY_MISSING("email"))
+        .withMessage(ErrorMessages.VALIDATION.KEY_MISSING('email'))
         .bail()
         .not()
         .isEmpty()
-        .withMessage(
-            ErrorMessages.VALIDATION.EMPTY_VALUE("email")
-        )
+        .withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('email'))
         .bail()
-        .isString()
-        .withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING("email"))
-        .bail().custom((value) => validateEmail(value))
+        .isEmail()
         .withMessage(ErrorMessages.AUTH.INVALID_EMAIL),
 
     body('gstStatus')
@@ -98,18 +96,10 @@ export const createClientValidationRules = (): ValidationChain[] => [
         .bail()
         .custom((value) => Object.values(ClientStatus).includes(value))
         .withMessage(ErrorMessages.CLIENT.INVALID_CLIENT_STATUS),
-
-
-
-
 ];
 
 // ─── Update ───────────────────────────────────────────────────────────────────
 export const updateClientValidationRules = (): ValidationChain[] => [
-
-    param('id')
-        .isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID("client id"))
-        .toInt(),
 
     body('clientName')
         .optional()
@@ -167,6 +157,13 @@ export const updateClientValidationRules = (): ValidationChain[] => [
         .custom((value) => Object.values(ClientStatus).includes(value))
         .withMessage(ErrorMessages.CLIENT.INVALID_CLIENT_STATUS),
 
+    body().custom(body => {
+        if (Object.keys(body).length === 0) {
+            throw new Error('At least one field must be provided for update');
+        }
+        return true;
+    }),
+
 ];
 
 // ─── Delete & Get By ID ────────────────────────────────────────────────────────
@@ -174,9 +171,6 @@ export const deleteClientValidationRules = (): ValidationChain[] => [
     param('id').isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID("Client id")).toInt(),
 ];
 
-export const getClientByIdValidationRules = (): ValidationChain[] => [
-    param('id').isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID("Client id")).toInt(),
-];
 
 // ─── Get (paginated) ──────────────────────────────────────────────────────────
 
@@ -187,8 +181,8 @@ export const getClientsValidationRules = (): ValidationChain[] => [
     query('search').optional().isString().trim(),
 ];
 
-function validateEmail(email: string) {
-    const re =
-        /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
-    return re.test(String(email).toLowerCase())
-}
+
+export const IdValidationRules = (): ValidationChain[] => [
+    param('id').isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID("Client id")).toInt(),
+];
+
