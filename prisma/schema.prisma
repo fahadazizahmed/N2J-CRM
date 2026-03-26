@@ -118,6 +118,7 @@ model User {
   // ─── Contract Relations ───
   managed_contracts ClientContract[] @relation("ContractManager")
   created_contracts ClientContract[] @relation("ContractCreator")
+  created_jobs      Job[]            @relation("JobCreator")
 
   @@map("users")
 }
@@ -259,7 +260,8 @@ model ClientContract {
 
   documents ClientContractDocument[]
   rates     ClientContractRate[]
-  jobs      Job[]
+  jobs      Job[] @relation("JobContract")
+  tips      Job[] @relation("JobTip")
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -346,10 +348,10 @@ model Vehicle {
 
   media VehicleMedia[]
   created_by Int? // admin who created vehicle
-  jobs       Job[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
+   job_assignments JobAssignment[] 
 
   @@index([vehicle_type_id])
   @@index([driver_id])
@@ -494,6 +496,7 @@ model Driver {
   // relations
   documents DriverDocument[]
   rates     DriverRate[]
+  job_assignments JobAssignment[] 
 
   // vehicles driven by this driver
   assigned_vehicles Vehicle[] @relation("VehicleAssignedDriver")
@@ -501,7 +504,6 @@ model Driver {
   created_at     DateTime         @default(now())
   updated_at     DateTime         @updatedAt
   DriverLocation DriverLocation[]
-  jobs           Job[]
 
   @@map("drivers")
 }
@@ -571,6 +573,15 @@ enum JobStatus {
   @@map("job_status")
 }
 
+enum JobAssignmentStatus {
+  assigned
+  inProgress
+  completed
+  cancelled
+
+  @@map("job_assignment_status")
+}
+
 enum JobPriority {
   high
   normal
@@ -595,13 +606,14 @@ model Job {
   client          Client   @relation(fields: [client_id], references: [id])
 
   contract_id     Int?
-  contract        ClientContract? @relation(fields: [contract_id], references: [id])
+  contract        ClientContract? @relation("JobContract", fields: [contract_id], references: [id])
+  assignments     JobAssignment[]
 
-  vehicle_id      Int
-  vehicle         Vehicle  @relation(fields: [vehicle_id], references: [id])
-
-  driver_id       Int
-  driver          Driver   @relation(fields: [driver_id], references: [id])
+  tip_id          Int?
+  tip             ClientContract? @relation("JobTip", fields: [tip_id], references: [id])
+  tip_address     String?
+  tip_rate        Float?
+  tip_billing_type BillingType?
 
   pick_up_address String
   entry_date      DateTime
@@ -611,16 +623,41 @@ model Job {
   quantity_unit   QuantityUnit
   rate            Float
   billing_type    BillingType
+  toll_handling   TollHandling @default(included)
+  one_way_toll    Float?
+  return_toll     Float?
   notes           String?
 
   priority        JobPriority
   status          JobStatus @default(scheduled)
 
+  created_by      Int?
+  creator         User? @relation("JobCreator", fields: [created_by], references: [id], onDelete: SetNull)
+
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt
 
   @@index([client_id])
+  @@map("jobs")
+}
+
+model JobAssignment {
+  id         Int @id @default(autoincrement())
+
+  job_id     Int
+  job        Job @relation(fields: [job_id], references: [id])
+
+  vehicle_id Int
+  vehicle    Vehicle @relation(fields: [vehicle_id], references: [id])
+
+  driver_id  Int
+  driver     Driver @relation(fields: [driver_id], references: [id])
+
+  status     JobAssignmentStatus @default(assigned)
+
+  created_at DateTime @default(now())
+
+  @@unique([job_id, vehicle_id]) // prevent duplicate vehicle per job
   @@index([vehicle_id])
   @@index([driver_id])
-  @@map("jobs")
 }

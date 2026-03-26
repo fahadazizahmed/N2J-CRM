@@ -15,7 +15,7 @@ async function startServer() {
         ################################################\x1b[0m
       `);
       // Start background scheduled jobs to check contract expiry
-     // scheduleContractExpiryJob();
+      scheduleContractExpiryJob();
     });
 
     // Handle server errors

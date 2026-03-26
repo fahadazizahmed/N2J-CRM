@@ -46,7 +46,7 @@ export default ({ app }: { app: express.Application }) => {
    * @TODO Explain why they are here
    */
   app.get('/status', (req: Request, res: Response) => {
-    res.status(200).send(`${config.SOFTWARE_NAME} version 2 is running`);
+    res.status(200).send(`${config.SOFTWARE_NAME} version 3 is running`);
   });
 
   app.head('/status', (req: Request, res: Response) => {
@@ -69,19 +69,19 @@ export default ({ app }: { app: express.Application }) => {
   // }));
 
 
-  app.use(cors({
-    origin: "*",
-    credentials: true,
-  }))
+  // app.use(cors({
+  //   origin: "*",
+  //   credentials: true,
+  // }))
 
 
 
-  // app.use(
-  //   cors({
-  //     origin: "https://stage.frontend.nja.i2n.io",
-  //     credentials: true,
-  //   })
-  // );
+  app.use(
+    cors({
+      origin: "https://stage.frontend.nja.i2n.io",
+      credentials: true,
+    })
+  );
 
 
 

@@ -463,10 +463,21 @@ export default class AdminContractService implements IAdminContractService {
                 company_name: true,
                 email: true,
                 phone: true,
+                address: true,
+                rates: {         // ✅ correct relation name
+                    select: {
+                        id: true,
+                        billing_type: true,
+                        rate: true,
+                        toll_handling: true
+                    },
+                    orderBy: { id: 'desc' },    // optional: get latest first
+                    take: 1,                    // optional: only get last rate
+                },
             },
-            orderBy: { company_name: 'asc' },
         });
     }
+
 
 
 

@@ -4,10 +4,9 @@ import { CreditTerms, ContractStatus, BillingType, TollHandling, ContractType, A
 
 export interface ICreateJobDTO {
     clientId: number;
-    tipId: number;
+    tipId?: number;
     contractId?: number;
-    vehicleId: number;
-    driverId: number;
+    vehicles: { vehicleId: number; driverId: number | null }[];
     pickUpAddress: string;
     entryDate: string;
     deliveryDate: string;
@@ -16,12 +15,22 @@ export interface ICreateJobDTO {
     quantityUnit: QuantityUnit;
     rate: number;
     billingType: BillingType;
+    tollHandling?: TollHandling;
+    oneWayToll?: number;
+    returnToll?: number;
+    tipAddress?: string;
+    tipRate?: number;
+    tipBillingType?: BillingType;
     notes?: string;
     priority: JobPriority;
 }
 
 export interface IUpdateJobDTO extends Partial<ICreateJobDTO> {
     status?: JobStatus;
+}
+
+export interface IUpdateJobStatusDTO {
+    status: JobStatus;
 }
 
 export interface IGetJobsQuery {

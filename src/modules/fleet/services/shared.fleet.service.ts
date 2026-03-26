@@ -98,7 +98,8 @@ export default class SharedFleetService implements ISharedFleetService {
                         phone: true,
                         email: true
                     }
-                }
+                },
+
             },
             orderBy: { created_at: 'desc' }
         });
@@ -367,66 +368,29 @@ export default class SharedFleetService implements ISharedFleetService {
     public async getVehicleWithJob(): Promise<any[]> {
         const vehicles = await prisma.vehicle.findMany({
             include: {
-                driver: {
-                    // select: {
-                    //     id: true,
-                    //     first_name: true,
-                    //     last_name: true,
-                    //     phone: true,
-                    //     license_class: true,
-                    //     license_number: true,
-                    //     documents: {
-                    //         where: {
-                    //             document_type: DriverDocumentType.license,
-                    //             is_active: true,
-                    //         }
-                    //     },
-                    //     email: true,
-                    // }
-                },
 
-                jobs: {
-                    where: {
-                        status: {
-                            in: [JobStatus.scheduled, JobStatus.inProgress]
-                        }
-                    },
+                driver: {
                     select: {
                         id: true,
-                        job_number: true,
+                        first_name: true,
+                        last_name: true,
+                        phone: true,
+                        email: true,
+                        license_class: true,
+                        license_number: true,
                         status: true,
-                        pick_up_address: true,
-                        entry_date: true,
-                        delivery_date: true,
-                        material: true,
-                        client: {
-                            select: {
-                                client_name: true
+                        user: true,
+                        documents: {
+                            where: {
+                                document_type: DriverDocumentType.license,
+                                is_active: true
                             }
                         }
                     }
-                }
+                },
             },
             orderBy: { created_at: 'desc' }
         });
-
-        console.log("vehicles", vehicles);
-
-
-        // "id": 2,
-        //             "firstName": "Muiz",
-        //             "lastName": "Aziz",
-        //             "email": "fahadazz@gmail.com",
-        //             "phone": null,
-        //             "status": "active",
-        //             "licenseClass": "MR",
-
-
-
-
-
-
-
 
         return vehicles.map(v => ({
             id: v.id,
@@ -435,28 +399,20 @@ export default class SharedFleetService implements ISharedFleetService {
             makeYear: v.make_year,
             registrationNumber: v.registration_number,
             status: v.status,
-            // driver: v.driver ? {
-            //     id: v.driver.id,
-            //     firstName: v.driver.first_name,
-            //     lastName: v.driver.last_name,
-            //     phone: v.driver.phone,
-            //     email: v.driver.email,
-            //     vehicleCategory: v.vehicle_category,
-            //     licenseClass: v.driver.license_class,
-            //     licenseNumber: v.driver.license_number,
-            //     documents: v.driver.documents || [],
-            // } : null,
-            jobs: v.jobs.map((j: any) => ({
-                id: j.id,
-                jobNumber: j.job_number,
-                status: j.status,
-                pickUpAddress: j.pick_up_address,
-                entryDate: j.entry_date,
-                deliveryDate: j.delivery_date,
-                material: j.material,
-                clientName: j.client?.client_name
-            }))
+            driver_id: v.driver_id,
+            driver: v.driver ? {
+                id: v.driver.id,
+                firstName: v.driver.first_name,
+                lastName: v.driver.last_name,
+                phone: v.driver.phone,
+                email: v.driver.user.email,
+                licenseClass: v.driver.license_class,
+                status: v.driver.status,
+                documents: v.driver.documents,
+                licenseNumber: v.driver.license_number
+            } : null
         }));
+
 
     }
 
