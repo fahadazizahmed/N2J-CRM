@@ -368,21 +368,21 @@ export default class SharedFleetService implements ISharedFleetService {
         const vehicles = await prisma.vehicle.findMany({
             include: {
                 driver: {
-                    select: {
-                        id: true,
-                        first_name: true,
-                        last_name: true,
-                        phone: true,
-                        license_class: true,
-                        license_number: true,
-                        documents: {
-                            where: {
-                                document_type: DriverDocumentType.license,
-                                is_active: true,
-                            }
-                        },
-                        email: true,
-                    }
+                    // select: {
+                    //     id: true,
+                    //     first_name: true,
+                    //     last_name: true,
+                    //     phone: true,
+                    //     license_class: true,
+                    //     license_number: true,
+                    //     documents: {
+                    //         where: {
+                    //             document_type: DriverDocumentType.license,
+                    //             is_active: true,
+                    //         }
+                    //     },
+                    //     email: true,
+                    // }
                 },
 
                 jobs: {
@@ -412,6 +412,22 @@ export default class SharedFleetService implements ISharedFleetService {
 
         console.log("vehicles", vehicles);
 
+
+        // "id": 2,
+        //             "firstName": "Muiz",
+        //             "lastName": "Aziz",
+        //             "email": "fahadazz@gmail.com",
+        //             "phone": null,
+        //             "status": "active",
+        //             "licenseClass": "MR",
+
+
+
+
+
+
+
+
         return vehicles.map(v => ({
             id: v.id,
             make: v.make,
@@ -419,18 +435,17 @@ export default class SharedFleetService implements ISharedFleetService {
             makeYear: v.make_year,
             registrationNumber: v.registration_number,
             status: v.status,
-            driver: v.driver ? {
-                id: v.driver.id,
-                firstName: v.driver.first_name,
-                lastName: v.driver.last_name,
-                phone: v.driver.phone,
-                email: v.driver.email,
-                vehicleCategory: v.vehicle_category,
-                licenseClass: v.driver.license_class,
-                licenseNumber: v.driver.license_number,
-
-                documents: v.driver.documents || [],
-            } : null,
+            // driver: v.driver ? {
+            //     id: v.driver.id,
+            //     firstName: v.driver.first_name,
+            //     lastName: v.driver.last_name,
+            //     phone: v.driver.phone,
+            //     email: v.driver.email,
+            //     vehicleCategory: v.vehicle_category,
+            //     licenseClass: v.driver.license_class,
+            //     licenseNumber: v.driver.license_number,
+            //     documents: v.driver.documents || [],
+            // } : null,
             jobs: v.jobs.map((j: any) => ({
                 id: j.id,
                 jobNumber: j.job_number,
