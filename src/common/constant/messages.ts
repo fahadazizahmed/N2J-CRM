@@ -29,7 +29,8 @@ const InfoMessages = {
     ROLE_SELECTED: "Role Selected",
     CLIENT_CREATED_AND_INVITATION_SENT: "Client created and invitation sent",
     DRIVER_CREATED_AND_INVITATION_SENT: "Driver created and invitation sent",
-    TIP_COMPANY_CREATED: "Tip company created"
+    TIP_COMPANY_CREATED: "Tip company created",
+    SUBCONTRACTOR_CREATED_AND_INVITATION_SENT: "Subcontractor created and invitation sent"
 
 
   }

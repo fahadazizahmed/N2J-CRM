@@ -17,10 +17,39 @@ export default class AdminDriverController {
         } catch (e: any) { throw new GenericError(e, `Error in getBasicVehicles ${__filename}`); }
     };
 
+    getAllActiveIdleVehiclesSubcontractor = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const subcontractorId = parseInt(req.params.id as string, 10);
+            const result = await this.sharedFleetService.getAllActiveIdleVehiclesSubcontractor(subcontractorId);
+            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Basic Vehicles'), 200, result);
+        } catch (e: any) { throw new GenericError(e, `Error in getBasicVehicles ${__filename}`); }
+    };
+    getAllActiveNotAssignVehiclesDrivers = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const result = await this.sharedFleetService.getAllActiveNotAssignVehiclesDrivers();
+            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Basic Vehicles'), 200, result);
+        } catch (e: any) { throw new GenericError(e, `Error in getBasicVehicles ${__filename}`); }
+    };
+
+    getAllActiveNotAssignVehiclesDriversSubcontractor = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const subcontractorId = parseInt(req.params.id as string, 10);
+            const result = await this.sharedFleetService.getAllActiveNotAssignVehiclesDriversSubcontractor(subcontractorId);
+            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Basic Vehicles'), 200, result);
+        } catch (e: any) { throw new GenericError(e, `Error in getBasicVehicles ${__filename}`); }
+    };
+
+
+
+
+
+
+
     // GET /api/v1/admin/vehicle/get-vehicles-with-driver-details
     getVehiclesWithDriverDetails = async (req: Request, res: Response): Promise<void> => {
         try {
-            const result = await this.sharedFleetService.getVehiclesWithDriverDetails();
+            const subcontractorId = req.query.subcontractorId ? parseInt(req.query.subcontractorId as string, 10) : undefined;
+            const result = await this.sharedFleetService.getVehiclesWithDriverDetails(subcontractorId);
             sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Vehicles with Drivers'), 200, result);
         } catch (e: any) { throw new GenericError(e, `Error in getVehiclesWithDriverDetails ${__filename}`); }
     };
@@ -31,16 +60,11 @@ export default class AdminDriverController {
             sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_UPDATED_SUCCESSFULLY('Vehicle assignment'), 200, updatedDriver);
         } catch (e: any) { throw new GenericError(e, `Error in assignVehicle ${__filename}`); }
     };
-    getAllActiveNotAssignVehiclesDrivers = async (req: Request, res: Response): Promise<void> => {
-        try {
-            const result = await this.sharedFleetService.getAllActiveNotAssignVehiclesDrivers();
-            sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Basic Vehicles'), 200, result);
-        } catch (e: any) { throw new GenericError(e, `Error in getBasicVehicles ${__filename}`); }
-    };
 
     getDriverWithVehicleDetails = async (req: Request, res: Response): Promise<void> => {
         try {
-            const result = await this.sharedFleetService.getDriverWithVehicleDetails();
+            const subcontractorId = req.query.subcontractorId ? parseInt(req.query.subcontractorId as string, 10) : undefined;
+            const result = await this.sharedFleetService.getDriverWithVehicleDetails(subcontractorId);
             sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Drvier with vechiles'), 200, result);
         } catch (e: any) { throw new GenericError(e, `Error in getVehiclesWithDriverDetails ${__filename}`); }
     };
@@ -55,7 +79,8 @@ export default class AdminDriverController {
 
     getVehicleWithJob = async (req: Request, res: Response): Promise<void> => {
         try {
-            const result = await this.sharedFleetService.getVehicleWithJob();
+            const subcontractorId = req.query.subcontractorId ? parseInt(req.query.subcontractorId as string, 10) : undefined;
+            const result = await this.sharedFleetService.getVehicleWithJob(subcontractorId);
             sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Vehicle with Job'), 200, result);
         } catch (e: any) { throw new GenericError(e, `Error in getVehicleWithJob ${__filename}`); }
     };

@@ -1,10 +1,10 @@
 import { body, param, query, ValidationChain } from 'express-validator';
 import ErrorMessages from '../../../common/constant/errors';
-import { CreditTerms, ContractStatus, ContractType, ApprovalStatus } from '../../../../generated/prisma';
+import { CreditTerms, ContractStatus, ContractType, ApprovalStatus, GstStatus } from '../../../../generated/prisma';
 import { BillingType, TollHandling } from '../../../../generated/prisma';
 import { isValidABN, isValidPhone } from '../../../helper/helper.method';
 import { CountryCode } from 'libphonenumber-js';
-
+import constant from '../../../common/constant/constant';
 
 export const createContractValidationRules = (): ValidationChain[] => [
 
@@ -69,6 +69,24 @@ export const createContractValidationRules = (): ValidationChain[] => [
         .default(ContractType.client)
         .custom((v) => Object.values(ContractType).includes(v))
         .withMessage(`contractType must be one of: ${Object.values(ContractType).join(', ')}`),
+
+    body('gstStatus')
+        .optional()
+        .custom((value) => Object.values(GstStatus).includes(value))
+        .withMessage(ErrorMessages.CLIENT.INVALID_GST_STATUS),
+
+    body('creditTerms')
+        .optional()
+        .custom((value) => Object.values(CreditTerms).includes(value))
+        .withMessage(ErrorMessages.CLIENT.INVALID_CREDIT_TERMS),
+
+    body('creditScore')
+        .optional()
+        .isInt({ min: constant.CREDIT_SCORE.MIN, max: constant.CREDIT_SCORE.MAX })
+        .withMessage(
+            `Credit score must be between ${constant.CREDIT_SCORE.MIN} and ${constant.CREDIT_SCORE.MAX}`
+        ),
+
 
 ];
 
@@ -191,6 +209,24 @@ export const updateContractValidationRules = (): ValidationChain[] => [
     body('contractContactPhone')
         .optional()
         .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('contractContactPhone')),
+
+    body('gstStatus')
+        .optional()
+        .custom((value) => Object.values(GstStatus).includes(value))
+        .withMessage(ErrorMessages.CLIENT.INVALID_GST_STATUS),
+
+    body('creditTerms')
+        .optional()
+        .custom((value) => Object.values(CreditTerms).includes(value))
+        .withMessage(ErrorMessages.CLIENT.INVALID_CREDIT_TERMS),
+
+    body('creditScore')
+        .optional()
+        .isInt({ min: constant.CREDIT_SCORE.MIN, max: constant.CREDIT_SCORE.MAX })
+        .withMessage(
+            `Credit score must be between ${constant.CREDIT_SCORE.MIN} and ${constant.CREDIT_SCORE.MAX}`
+        ),
+
 ];
 
 // ─── Update Contract Status ──────────────────────────────────────────────────
@@ -267,14 +303,14 @@ const rateBodyRules = (): ValidationChain[] => [
     body('minimumCharge')
         .optional()
         .isFloat({ min: 0 })
-        .withMessage('minimumCharge must be a non-negative number')
-        .toFloat()
-        .custom((value, { req }) => {
-            if (value != null && req.body.rate != null && value > req.body.rate) {
-                throw new Error('minimumCharge cannot be greater than rate');
-            }
-            return true;
-        }),
+        .withMessage('minimumCharge must be a non-negative number'),
+    // .toFloat()
+    // .custom((value, { req }) => {
+    //     if (value != null && req.body.rate != null && value > req.body.rate) {
+    //         throw new Error('minimumCharge cannot be greater than rate');
+    //     }
+    //     return true;
+    // }),
     body('tollHandling')
         .optional()
         .custom((v) => Object.values(TollHandling).includes(v))

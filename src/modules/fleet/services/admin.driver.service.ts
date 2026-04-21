@@ -4,7 +4,7 @@ import { NotFoundError } from '../../../errors/not-found-error';
 import { auditService } from '../../../services/audit.service';
 import constant from '../../../common/constant/constant';
 import { ICreateDriverDTO, IAddDriverRateDTO, IUpdateDriverDTO, IGetDriversQuery } from '../dto/driver.dto';
-import { DriverType, LicenseClass, Prisma, DriverStatus, DriverDocumentType } from '../../../../generated/prisma';
+import { DriverType, LicenseClass, Prisma, DriverStatus, DriverDocumentType, SubcontractorStatus, SequenceEntity } from '../../../../generated/prisma';
 import ErrorMessages from '../../../common/constant/errors';
 import { UnProcessableEntityError } from '../../../errors';
 import jwt from 'jsonwebtoken';
@@ -14,6 +14,8 @@ import config from '../../../config';
 import InfoMessages from '../../../common/constant/messages';
 import { ImageService } from '../../../services/image.service';
 import { VehicleStatus } from '../../../../generated/prisma';
+import { generateEntityCode } from '../../../helper/helper.method';
+import { activityService } from '../../../services/activity.service';
 
 
 export interface IDriverStats {
@@ -42,12 +44,9 @@ export interface IAdminDriverService {
     updateDriver(id: number, updateDriverDTO: IUpdateDriverDTO, actorId?: number | null): Promise<any>;
     getDriverById(id: number, req: any): Promise<any>;
     getDrivers(query: IGetDriversQuery): Promise<any>;
-    getDriverStats(): Promise<IDriverStats>;
+    getDriverStats(driverType?: 'inHouse' | 'subcontractor'): Promise<IDriverStats>;
     getDriverEnums(): Promise<any>;
     addDriverRates(driverId: number, addDriverRateDTO: IAddDriverRateDTO, actorId?: number | null): Promise<any>;
-
-
-
 }
 
 export default class AdminDriverService implements IAdminDriverService {
@@ -62,8 +61,14 @@ export default class AdminDriverService implements IAdminDriverService {
         const driverRole = await prisma.role.findUnique({
             where: { name: constant.ROLES.DRIVER },
         });
+
         if (!driverRole) {
             throw new UnProcessableEntityError(ErrorMessages.GENERIC.ITEM_NOT_FOUND("Driver role"));
+        }
+        if (createDriverDTO.driverType === DriverType.inHouse && createDriverDTO.subcontractorId) {
+            throw new BadRequestError(
+                'Subcontractor id should not be provided for in-house driver'
+            );
         }
 
         const result = await prisma.$transaction(async (tx) => {
@@ -74,7 +79,6 @@ export default class AdminDriverService implements IAdminDriverService {
                 user = await tx.user.create({
                     data: {
                         email,
-                        name: `${createDriverDTO.firstName.trim()} ${createDriverDTO.lastName.trim()}`,
                         password_hash: "pending_setup",
                         invite_token: "pending",
                         status: 0,
@@ -89,9 +93,39 @@ export default class AdminDriverService implements IAdminDriverService {
                 throw e;
             }
 
+
+            // check if subcontractor exist
+            const finalDriverType = createDriverDTO.driverType ?? DriverType.inHouse;
+
+            let finalSubcontractorId: number | null = null;
+            if (finalDriverType === DriverType.subcontractor) {
+                if (!createDriverDTO.subcontractorId) {
+                    throw new BadRequestError('Subcontractor id is required for subcontractor vehicles');
+                }
+                const subcontractor = await tx.subcontractor.findUnique({
+                    where: { id: createDriverDTO.subcontractorId }
+                });
+                if (!subcontractor) {
+                    throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND("Subcontractor"));
+                }
+                if (subcontractor.status !== SubcontractorStatus.active) {
+                    throw new BadRequestError('Subcontractor must be active to assign vehicles');
+                }
+                finalSubcontractorId = subcontractor.id;
+            }
+            const driverNumber = await generateEntityCode({
+                tx,
+                entity: SequenceEntity.DRIVER,
+                prefix: constant.CODE_PREFIX.DRIVER,
+
+            });
+
+
+
             // 3d. Create the Driver record linked to this User
             const driver = await tx.driver.create({
                 data: {
+                    driver_number: driverNumber,
                     first_name: createDriverDTO.firstName,
                     last_name: createDriverDTO.lastName,
                     phone: createDriverDTO.phone,
@@ -100,8 +134,9 @@ export default class AdminDriverService implements IAdminDriverService {
                     license_class: createDriverDTO.licenseClass,
                     user_id: user.id,
                     is_mobile_access: createDriverDTO.isMobileAccess ?? false,
-                    // vehicle_id: createDriverDTO.vehicleId || null
+                    subcontractor_id: finalSubcontractorId,
                 },
+
                 include: {
                     user: { select: { id: true, email: true, name: true } },
                 },
@@ -109,7 +144,50 @@ export default class AdminDriverService implements IAdminDriverService {
 
 
             if (createDriverDTO.vehicleId) {
+                //We find vehicle
+                const existingVehicle = await tx.vehicle.findUnique({
+                    where: { id: createDriverDTO.vehicleId },
+                    select: { id: true, status: true, driver_id: true, subcontractor_id: true }
+                });
 
+                //Check vehicle exist
+
+                if (!existingVehicle) {
+                    throw new UnProcessableEntityError(
+                        ErrorMessages.GENERIC.ITEM_NOT_FOUND("Vehicle")
+                    );
+                }
+
+                //Vehicle active and idle
+                if (
+                    existingVehicle.status !== VehicleStatus.active &&
+                    existingVehicle.status !== VehicleStatus.idle
+                ) {
+                    throw new BadRequestError(
+                        'Vehicle is not available for assignment (status must be active or idle).'
+                    );
+                }
+                //vehicle already has no driver
+
+                if (existingVehicle.driver_id) {
+                    throw new BadRequestError("Vehicle already assigned");
+                }
+
+                //if driver type is subcontractor and vehicle subcotnractor match with the subcontractor
+                if (finalDriverType === DriverType.subcontractor && finalSubcontractorId) {
+                    if (existingVehicle.subcontractor_id !== finalSubcontractorId) {
+                        throw new BadRequestError("Vehicle does not belong to this subcontractor");
+                    }
+                }
+
+                //if driver type inhouse and user send vehicle which has owenrr contractor not inHouse then error
+                if (finalDriverType === DriverType.inHouse) {
+                    if (existingVehicle.subcontractor_id) {
+                        throw new BadRequestError(
+                            "In-house driver cannot be assigned subcontractor vehicle"
+                        );
+                    }
+                }
 
                 const updated = await tx.vehicle.updateMany({
                     where: {
@@ -121,35 +199,26 @@ export default class AdminDriverService implements IAdminDriverService {
                 });
 
                 if (updated.count !== 1) {
-                    const existingVehicle = await tx.vehicle.findUnique({
-                        where: { id: createDriverDTO.vehicleId },
-                        select: { id: true, status: true, driver_id: true }
-                    });
-
-                    if (!existingVehicle) {
-                        throw new UnProcessableEntityError(
-                            ErrorMessages.GENERIC.ITEM_NOT_FOUND("Vehicle")
-                        );
-                    }
-
-                    if (
-                        existingVehicle.status !== VehicleStatus.active &&
-                        existingVehicle.status !== VehicleStatus.idle
-                    ) {
-                        throw new BadRequestError(
-                            'Vehicle is not available for assignment (status must be active or idle).'
-                        );
-                    }
-
-                    if (existingVehicle.driver_id) {
-                        throw new BadRequestError("Vehicle already assigned");
-                    }
-                    // fallback — should rarely happen
                     throw new BadRequestError("Vehicle assignment failed");
                 }
-
             }
 
+            // ─── 5. Rate Validation ─────────────────────
+            if (finalDriverType === DriverType.subcontractor) {
+                const hasAnyRate =
+                    createDriverDTO.hourlyRate != null ||
+                    createDriverDTO.hourlyRateWeekend != null ||
+                    createDriverDTO.nightRate != null ||
+                    createDriverDTO.nightRateWeekend != null;
+
+                if (!hasAnyRate) {
+                    throw new BadRequestError(
+                        "At least one rate is required for subcontractor drivers"
+                    );
+                }
+            }
+
+            // ─── 6. Create Driver Rate ─────────────────────
             if (
                 createDriverDTO.hourlyRate ||
                 createDriverDTO.hourlyRateWeekend ||
@@ -162,10 +231,12 @@ export default class AdminDriverService implements IAdminDriverService {
                         hourly_rate_weekend: createDriverDTO.hourlyRateWeekend,
                         night_rate: createDriverDTO.nightRate,
                         night_rate_weekend: createDriverDTO.nightRateWeekend,
+                        effective_from: new Date(), // 🔥 important
                         driver: { connect: { id: driver.id } },
                     }
                 });
             }
+
 
             return { driver, user };
         }, { maxWait: constant.TX_MAX_WAIT, timeout: constant.TX_TIMEOUT });
@@ -213,6 +284,14 @@ export default class AdminDriverService implements IAdminDriverService {
                     action: InfoMessages.LOGGER_MESSAGE.DRIVER_CREATED_AND_INVITATION_SENT
                 },
             }),
+            activityService.log({
+                actor_id: actorId ?? null,
+                entity_type: constant.ENTITY_TYPE.DRIVER,
+                entity_id: driver.id,
+                action: "invited",
+                message: `Driver ${createDriverDTO.firstName} ${createDriverDTO.lastName} invited`,
+            })
+
         ]);
 
         return driver;
@@ -480,12 +559,45 @@ export default class AdminDriverService implements IAdminDriverService {
         }
 
         const result = await prisma.$transaction(async (tx) => {
-            const updateData: Prisma.DriverUpdateInput = {};
+            const updateData: Prisma.DriverUncheckedUpdateInput = {};
+
+            let resolvedDriverType: DriverType = existingDriver.driver_type;
+            if (updateDriverDTO.driverType !== undefined) {
+                resolvedDriverType = updateDriverDTO.driverType;
+                updateData.driver_type = resolvedDriverType;
+            }
+
+            if (resolvedDriverType === DriverType.inHouse && updateDriverDTO.subcontractorId) {
+                throw new BadRequestError(
+                    'Subcontractor id should not be provided for in-house driver'
+                );
+            }
+
+            let resolvedSubcontractorId: number | null = existingDriver.subcontractor_id;
+            if (resolvedDriverType === DriverType.subcontractor) {
+                const subId = updateDriverDTO.subcontractorId ?? existingDriver.subcontractor_id;
+                if (!subId) {
+                    throw new BadRequestError('Subcontractor id is required for subcontractor drivers');
+                }
+                const subcontractor = await tx.subcontractor.findUnique({
+                    where: { id: subId }
+                });
+                if (!subcontractor) {
+                    throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND("Subcontractor"));
+                }
+                if (subcontractor.status !== SubcontractorStatus.active) {
+                    throw new BadRequestError('Subcontractor must be active to assign drivers');
+                }
+                resolvedSubcontractorId = subId;
+                updateData.subcontractor_id = subId;
+            } else {
+                resolvedSubcontractorId = null;
+                updateData.subcontractor_id = null;
+            }
 
             if (updateDriverDTO.firstName !== undefined) updateData.first_name = updateDriverDTO.firstName;
             if (updateDriverDTO.lastName !== undefined) updateData.last_name = updateDriverDTO.lastName;
             if (updateDriverDTO.phone !== undefined) updateData.phone = updateDriverDTO.phone;
-            if (updateDriverDTO.driverType !== undefined) updateData.driver_type = updateDriverDTO.driverType;
             if (updateDriverDTO.licenseNumber !== undefined) updateData.license_number = updateDriverDTO.licenseNumber;
             if (updateDriverDTO.licenseClass !== undefined) updateData.license_class = updateDriverDTO.licenseClass;
             if (updateDriverDTO.licenseExpiry !== undefined) updateData.license_expiry = updateDriverDTO.licenseExpiry;
@@ -502,20 +614,33 @@ export default class AdminDriverService implements IAdminDriverService {
                 }
             }
 
+            let vehicleToValidate: any = null;
+            const isVehicleRemoved = updateDriverDTO.vehicleId === null;
+
             if (updateDriverDTO.vehicleId !== undefined) {
-
-
                 if (updateDriverDTO.vehicleId === null) {
-
                     await tx.vehicle.updateMany({
                         where: { driver_id: id },
                         data: { driver_id: null }
                     });
+                } else {
+                    vehicleToValidate = await tx.vehicle.findUnique({
+                        where: { id: updateDriverDTO.vehicleId },
+                        select: { id: true, subcontractor_id: true, status: true, driver_id: true }
+                    });
 
-                }
-                else {
+                    if (!vehicleToValidate) {
+                        throw new UnProcessableEntityError(ErrorMessages.GENERIC.ITEM_NOT_FOUND("Vehicle"));
+                    }
 
-                    // 🔹 ATOMIC ASSIGN NEW VEHICLE
+                    if (vehicleToValidate.status !== VehicleStatus.active && vehicleToValidate.status !== VehicleStatus.idle) {
+                        throw new BadRequestError('Vehicle is not available for assignment (status must be active or idle).');
+                    }
+
+                    if (vehicleToValidate.driver_id && vehicleToValidate.driver_id !== id) {
+                        throw new BadRequestError("Vehicle already assigned to another driver");
+                    }
+
                     const updated = await tx.vehicle.updateMany({
                         where: {
                             id: updateDriverDTO.vehicleId,
@@ -526,21 +651,37 @@ export default class AdminDriverService implements IAdminDriverService {
                     });
 
                     if (updated.count !== 1) {
-                        throw new BadRequestError(
-                            "Vehicle not available, not found, or already assigned"
-                        );
+                        throw new BadRequestError("Vehicle not available, not found, or already assigned");
                     }
 
-                    // 🔹 UNASSIGN PREVIOUS VEHICLES (IF ANY)
                     await tx.vehicle.updateMany({
-                        where: {
-                            driver_id: id,
-                            id: { not: updateDriverDTO.vehicleId }
-                        },
+                        where: { driver_id: id, id: { not: updateDriverDTO.vehicleId } },
                         data: { driver_id: null }
                     });
+                }
+            }
 
+            if (!isVehicleRemoved && !vehicleToValidate) {
+                if (updateDriverDTO.driverType !== undefined || updateDriverDTO.subcontractorId !== undefined) {
+                    const assignedVehicle = await tx.vehicle.findFirst({
+                        where: { driver_id: id },
+                        select: { id: true, subcontractor_id: true }
+                    });
+                    if (assignedVehicle) {
+                        vehicleToValidate = assignedVehicle;
+                    }
+                }
+            }
 
+            if (vehicleToValidate && !isVehicleRemoved) {
+                if (resolvedDriverType === DriverType.subcontractor && resolvedSubcontractorId) {
+                    if (vehicleToValidate.subcontractor_id !== resolvedSubcontractorId) {
+                        throw new BadRequestError("Vehicle does not belong to this subcontractor");
+                    }
+                } else if (resolvedDriverType === DriverType.inHouse) {
+                    if (vehicleToValidate.subcontractor_id) {
+                        throw new BadRequestError("In-house driver cannot be assigned subcontractor vehicle");
+                    }
                 }
             }
 
@@ -559,20 +700,49 @@ export default class AdminDriverService implements IAdminDriverService {
                 updateDriverDTO.nightRate !== undefined ||
                 updateDriverDTO.nightRateWeekend !== undefined
             ) {
-                const existingRate = await tx.driverRate.findFirst({
-                    where: { driver_id: id }
+                const rateData: any = {};
+
+                if (updateDriverDTO.hourlyRate !== undefined) {
+                    rateData.hourly_rate = updateDriverDTO.hourlyRate;
+                }
+
+                if (updateDriverDTO.hourlyRateWeekend !== undefined) {
+                    rateData.hourly_rate_weekend = updateDriverDTO.hourlyRateWeekend;
+                }
+
+                if (updateDriverDTO.nightRate !== undefined) {
+                    rateData.night_rate = updateDriverDTO.nightRate;
+                }
+
+                if (updateDriverDTO.nightRateWeekend !== undefined) {
+                    rateData.night_rate_weekend = updateDriverDTO.nightRateWeekend;
+                }
+
+                await tx.driverRate.create({
+                    data: {
+                        ...rateData,
+                        effective_from: new Date(), // 🔥 VERY IMPORTANT
+                        driver: { connect: { id } }
+                    }
+                });
+            }
+
+            if (resolvedDriverType === DriverType.subcontractor) {
+                const finalRate = await tx.driverRate.findFirst({
+                    where: { driver_id: id },
+                    orderBy: { effective_from: 'desc' }
                 });
 
-                const rateData: any = {};
-                if (updateDriverDTO.hourlyRate !== undefined) rateData.hourly_rate = updateDriverDTO.hourlyRate;
-                if (updateDriverDTO.hourlyRateWeekend !== undefined) rateData.hourly_rate_weekend = updateDriverDTO.hourlyRateWeekend;
-                if (updateDriverDTO.nightRate !== undefined) rateData.night_rate = updateDriverDTO.nightRate;
-                if (updateDriverDTO.nightRateWeekend !== undefined) rateData.night_rate_weekend = updateDriverDTO.nightRateWeekend;
-
-                if (existingRate) {
-                    await tx.driverRate.update({ where: { id: existingRate.id }, data: rateData });
-                } else {
-                    await tx.driverRate.create({ data: { ...rateData, driver: { connect: { id } } } });
+                if (
+                    !finalRate ||
+                    (finalRate.hourly_rate == null &&
+                        finalRate.hourly_rate_weekend == null &&
+                        finalRate.night_rate == null &&
+                        finalRate.night_rate_weekend == null)
+                ) {
+                    throw new BadRequestError(
+                        "At least one rate is required for subcontractor drivers."
+                    );
                 }
             }
 
@@ -598,6 +768,7 @@ export default class AdminDriverService implements IAdminDriverService {
                 user: { select: { id: true, email: true, name: true } },
                 rates: true,
                 documents: true,
+                subcontractor: true,
                 assigned_vehicles: { select: { id: true, registration_number: true, make: true, model: true, make_year: true, status: true } },
             },
         });
@@ -655,7 +826,15 @@ export default class AdminDriverService implements IAdminDriverService {
         const limit = query.limit ?? constant.PAGINATION.DEFAULT_LIMIT;
         const skip = (page - 1) * limit;
 
+
+
         const where: Prisma.DriverWhereInput = {};
+        if (query.driverType === 'subcontractor') {
+            where.driver_type = DriverType.subcontractor;
+        } else {
+            // default ('inHouse' or not provided) → inHouse + casual
+            where.driver_type = { in: [DriverType.inHouse, DriverType.casual] };
+        }
 
         if (query.status) {
             where.status = query.status as DriverStatus;
@@ -776,29 +955,36 @@ export default class AdminDriverService implements IAdminDriverService {
 
 
 
+    public async getDriverStats(driverType?: 'inHouse' | 'subcontractor'): Promise<IDriverStats> {
 
-    public async getDriverStats(): Promise<IDriverStats> {
+        const typeFilter: Prisma.DriverWhereInput =
+            driverType === 'subcontractor'
+                ? { driver_type: DriverType.subcontractor }
+                : { driver_type: { in: [DriverType.inHouse, DriverType.casual] } };
+
         const [statusGroups, typeGroups, assignedCount, mobileCount, total] = await Promise.all([
             // Group by status
             prisma.driver.groupBy({
                 by: ['status'],
+                where: typeFilter,
                 _count: { _all: true }
             }),
             // Group by driver type
             prisma.driver.groupBy({
                 by: ['driver_type'],
+                where: typeFilter,
                 _count: { _all: true }
             }),
             // Count assigned drivers (has assigned_vehicles)
             prisma.driver.count({
-                where: { assigned_vehicles: { some: {} } }
+                where: { ...typeFilter, assigned_vehicles: { some: {} } }
             }),
             // Count drivers with mobile access
             prisma.driver.count({
-                where: { is_mobile_access: true }
+                where: { ...typeFilter, is_mobile_access: true }
             }),
             // Total count
-            prisma.driver.count()
+            prisma.driver.count({ where: typeFilter })
         ]);
 
         // Build status map

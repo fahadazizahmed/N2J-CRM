@@ -1,6 +1,6 @@
 import { body, param, ValidationChain } from 'express-validator';
 import ErrorMessages from '../../../common/constant/errors';
-
+import { VehicleCategory, VehicleDocumentType, VehicleStatus } from '../../../../generated/prisma';
 export const assignVehicleValidationRules = (): ValidationChain[] => [
     param('id')
         .notEmpty().withMessage(ErrorMessages.VALIDATION.REQURED_FILED_MISSING('Driver id'))

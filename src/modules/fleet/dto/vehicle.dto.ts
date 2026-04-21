@@ -15,6 +15,8 @@ export interface ICreateVehicleDTO {
     notes?: string;
     status?: VehicleStatus;
     vehicleCategory?: VehicleCategory;
+    subcontractorId?: number;
+
 }
 
 // ─── Update ───────────────────────────────────────────────────────────────────
@@ -26,9 +28,12 @@ export interface IGetVehiclesQuery {
     limit?: number;
     search?: string;
     status?: VehicleStatus;
+    vehicleType?: 'inHouse' | 'subcontractor';
 }
 
 
 export interface IAssignDriverDTO {
     driverId: number;
+    vehicleCategory?: VehicleCategory;
+    subcontractorId?: number;
 }

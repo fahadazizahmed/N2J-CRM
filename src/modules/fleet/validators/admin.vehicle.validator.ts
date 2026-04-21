@@ -63,6 +63,20 @@ export const createVehicleValidationRules = () => {
             .optional()
             .isIn(Object.values(VehicleCategory))
             .withMessage(`Invalid vehicle category. Must be one of: ${Object.values(VehicleCategory).join(', ')}`),
+
+        body('subcontractorId')
+            .optional({ nullable: true })
+            .isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID("Subcontractor id")).toInt(),
+
+        body().custom((value) => {
+            if (value.vehicleCategory === 'subcontractor' && !value.subcontractorId) {
+                throw new Error('Subcontractor id is required when vehicle category is subcontractor');
+            }
+            if (value.vehicleCategory === 'inHouse' && value.subcontractorId) {
+                throw new Error('Subcontractor id should not be provided for in-house vehicle');
+            }
+            return true;
+        }),
     ];
 };
 
@@ -118,6 +132,20 @@ export const updateVehicleValidationRules = () => {
             .optional()
             .isIn(Object.values(VehicleCategory))
             .withMessage(`Invalid vehicle category. Must be one of: ${Object.values(VehicleCategory).join(', ')}`),
+
+        body('subcontractorId')
+            .optional({ nullable: true })
+            .isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID("Subcontractor id")).toInt(),
+
+        body().custom((value) => {
+            if (value.vehicleCategory === 'subcontractor' && !value.subcontractorId) {
+                throw new Error('Subcontractor id is required when vehicle category is subcontractor');
+            }
+            if (value.vehicleCategory === 'inHouse' && value.subcontractorId) {
+                throw new Error('Subcontractor id should not be provided for in-house vehicle');
+            }
+            return true;
+        }),
     ];
 };
 
@@ -155,4 +183,8 @@ export const getVehiclesValidationRules = (): ValidationChain[] => [
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage(ErrorMessages.PAGINATION.LIMIT_MUST_BETWEEN_1_AND_100).toInt(),
     query('status').optional().custom((value) => Object.values(VehicleStatus).includes(value)).withMessage(ErrorMessages.FLEET.INVALID_VEHICLE_STATUS),
     query('search').optional().isString().trim(),
+    query('vehicleType')
+        .optional()
+        .isIn(['inHouse', 'subcontractor'])
+        .withMessage("Invalid vehicleType. Must be one of: inHouse, subcontractor"),
 ];

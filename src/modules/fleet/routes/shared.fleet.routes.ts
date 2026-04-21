@@ -6,9 +6,11 @@ import { userPermissionGuard } from '../../../middlewares/user-permission-guard'
 import constant from '../../../common/constant/constant';
 import { assignDriverValidationRules, assignVehicleValidationRules } from '../validators/shared.fleet.validators';
 import { validateRequest } from '../../../middlewares/validate-request';
+import { validateParamId } from '../../../common/validators/global.validators';
 
 const router = express.Router();
 const controller = new SharedFleetController();
+
 
 router.get(
     routes.shared.GET_ACTIVE_IDLE_NOT_ASSIGN_VEHICLES,
@@ -18,25 +20,30 @@ router.get(
 );
 
 router.get(
-    routes.shared.GET_ALL_VEHICLES_WITH_DRIVER_DETAILS,
+    routes.shared.GET_ACTIVE_IDLE_NOT_ASSIGN_VEHICLES_SUBCONTRACTOR_VEHICLE,
     authentication,
     userPermissionGuard([constant.ROLES.ADMIN]),
-    controller.getVehiclesWithDriverDetails
-);
-router.post(
-    routes.shared.ASSIGN_VEHICLE,
-    authentication,
-    userPermissionGuard([constant.ROLES.ADMIN]),
-    assignVehicleValidationRules(),
+    validateParamId("id", "subcontractor id"),
     validateRequest,
-    controller.assignVehicle
+    controller.getAllActiveIdleVehiclesSubcontractor
 );
 
 router.get(
     routes.shared.GET_ALL_ACTIVE_NOT_ASSIGN_VEHICLE_DRIVERS,
     authentication,
     userPermissionGuard([constant.ROLES.ADMIN]),
+
+
     controller.getAllActiveNotAssignVehiclesDrivers
+);
+
+router.get(
+    routes.shared.GET_ALL_ACTIVE_NOT_ASSIGN_VEHICLE_DRIVERS_SUBCONTRACTOR,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    validateParamId("id", "subcontractor id"),
+    validateRequest,
+    controller.getAllActiveNotAssignVehiclesDriversSubcontractor
 );
 
 router.get(
@@ -44,13 +51,6 @@ router.get(
     authentication,
     userPermissionGuard([constant.ROLES.ADMIN]),
     controller.getDriverWithVehicleDetails
-);
-
-router.get(
-    routes.shared.GET_VEHICLE_WITH_JOB,
-    authentication,
-    userPermissionGuard([constant.ROLES.ADMIN]),
-    controller.getVehicleWithJob
 );
 
 router.post(
@@ -61,6 +61,46 @@ router.post(
     validateRequest,
     controller.assignDriver
 );
+
+router.get(
+    routes.shared.GET_ALL_VEHICLES_WITH_DRIVER_DETAILS,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    controller.getVehiclesWithDriverDetails
+);
+
+
+
+
+
+
+
+
+
+
+
+
+router.post(
+    routes.shared.ASSIGN_VEHICLE,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    assignVehicleValidationRules(),
+    validateRequest,
+    controller.assignVehicle
+);
+
+
+
+
+
+
+router.get(
+    routes.shared.GET_VEHICLE_WITH_JOB,
+    authentication,
+    userPermissionGuard([constant.ROLES.ADMIN]),
+    controller.getVehicleWithJob
+);
+
 
 
 export { router as sharedFleetRouter };

@@ -36,6 +36,14 @@ enum ClientStatus {
   @@map("client_status")
 }
 
+enum SubcontractorStatus {
+  pending
+  active
+  inactive
+
+  @@map("subcontractor_status")
+}
+
 enum ContractType {
   client
   supplier
@@ -87,6 +95,8 @@ enum SequenceEntity {
   TIPPER
   VEHICLE
   JOB
+  SUBCONTRACTOR
+  DRIVER
 }
 
 // ─── Core Models ────
@@ -112,6 +122,7 @@ model User {
   updated_at        DateTime         @updatedAt
   invite_token      String?
   audit_logs        AuditLog[]
+  activity_logs     ActivityLog[]
   sessions          UserSession[]
   clients           Client[] // primary contact for clients
   driver            Driver?
@@ -120,6 +131,12 @@ model User {
   created_contracts ClientContract[] @relation("ContractCreator")
   created_jobs      Job[]            @relation("JobCreator")
 
+  subcontractor_id Int?
+  subcontractor    Subcontractor? @relation(fields: [subcontractor_id], references: [id], onDelete: SetNull)
+
+  created_subcontractors Subcontractor[] @relation("SubcontractorCreator")
+
+  @@index([subcontractor_id])
   @@map("users")
 }
 
@@ -246,6 +263,11 @@ model ClientContract {
   approval_status ApprovalStatus @default(pendingReview)
   approval_reason String?
 
+    // Financial settings
+    gst_status   GstStatus ?
+    credit_terms CreditTerms ?
+    credit_score Int     ?
+
   credit_terms_override CreditTerms?
 
   special_terms String?
@@ -353,8 +375,12 @@ model Vehicle {
   updated_at DateTime @updatedAt
    job_assignments JobAssignment[] 
 
+  subcontractor_id Int?
+  subcontractor    Subcontractor? @relation(fields: [subcontractor_id], references: [id])
+
   @@index([vehicle_type_id])
   @@index([driver_id])
+  @@index([subcontractor_id])
   @@map("vehicles")
 }
 
@@ -466,7 +492,7 @@ enum LicenseClass {
 
 model Driver {
   id Int @id @default(autoincrement())
-
+driver_number      String? 
   first_name String
   last_name  String
 
@@ -505,6 +531,12 @@ model Driver {
   updated_at     DateTime         @updatedAt
   DriverLocation DriverLocation[]
 
+  subcontractor_id Int?
+  subcontractor    Subcontractor? @relation(fields: [subcontractor_id], references: [id])
+
+  received_messages JobMessageRecipient[]
+
+  @@index([subcontractor_id])
   @@map("drivers")
 }
 
@@ -541,6 +573,8 @@ model DriverRate {
   night_rate         Float?
   night_rate_weekend Float?
 
+  effective_from DateTime @default(now())
+
   created_at DateTime @default(now())
 
   @@index([driver_id])
@@ -569,6 +603,7 @@ enum JobStatus {
   inProgress
   completed
   cancelled
+  dispatched
 
   @@map("job_status")
 }
@@ -608,6 +643,7 @@ model Job {
   contract_id     Int?
   contract        ClientContract? @relation("JobContract", fields: [contract_id], references: [id])
   assignments     JobAssignment[]
+  documents       JobDocument[]
 
   tip_id          Int?
   tip             ClientContract? @relation("JobTip", fields: [tip_id], references: [id])
@@ -618,7 +654,8 @@ model Job {
   pick_up_address String
   entry_date      DateTime
   delivery_date   DateTime
-  material        String
+  material_id     Int
+  material        PreMaterial @relation(fields: [material_id], references: [id])
   quantity        Float
   quantity_unit   QuantityUnit
   rate            Float
@@ -634,8 +671,35 @@ model Job {
   created_by      Int?
   creator         User? @relation("JobCreator", fields: [created_by], references: [id], onDelete: SetNull)
 
+
+
+ staging_location        String?
+  loading_time            DateTime?
+  trucks_loading_at_once  Int?
+
+  nja_contact_name        String?
+  nja_contact_phone       String?
+
+  loading_instruction     String?
+  additional_information  String?
+  ppe_requirements        String?
+
+  dispatch_created_at     DateTime?
+
+
+
+
+
+
+
+
+
+
+
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt
+
+  messages        JobMessage[]
 
   @@index([client_id])
   @@map("jobs")
@@ -654,10 +718,201 @@ model JobAssignment {
   driver     Driver @relation(fields: [driver_id], references: [id])
 
   status     JobAssignmentStatus @default(assigned)
+   
+  rate_snapshot Float?
+
+  staging_location String?
+  load_time        DateTime?
+  instructions     String?
+  notes            String?
+
+  started_at   DateTime?
+  completed_at DateTime?
 
   created_at DateTime @default(now())
 
   @@unique([job_id, vehicle_id]) // prevent duplicate vehicle per job
   @@index([vehicle_id])
   @@index([driver_id])
+}
+
+model JobDocument {
+  id Int @id @default(autoincrement())
+
+  job_id Int
+  job    Job @relation(fields: [job_id], references: [id], onDelete: Cascade)
+
+  document_type JobDocumentType
+
+  file_path String
+  file_name String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([job_id])
+  @@map("job_documents")
+}
+
+enum JobDocumentType {
+  dispatch
+  docket
+  weighbridge
+  receipt
+  photo
+  other
+
+  @@map("job_document_type")
+}
+
+// ─── Subcontractor ────
+
+model Subcontractor {
+  id Int @id @default(autoincrement())
+
+  subcontractor_code String @unique
+
+  // 🏢 Company Info
+  company_name String
+  abn          String? @unique
+  address      String?
+  phone        String?
+  country_code String?
+
+  // 👤 Contact Person (communication only)
+  contact_name  String?
+  contact_email String?
+  contact_phone String?
+
+  // 📊 Status
+  status SubcontractorStatus @default(pending)
+
+  // 💰 Default Rates (REFERENCE ONLY - used to prefill UI)
+  per_tonne_rate     Float?
+  per_load_rate      Float?
+  hourly_rate        Float?
+  travel_hourly_rate Float?
+
+  // 🔗 Relations
+  vehicles Vehicle[]
+  drivers  Driver[]
+  documents SubcontractorDocument[]
+  users     User[]
+
+  notes String?
+
+  created_by Int?
+  creator    User? @relation("SubcontractorCreator", fields: [created_by], references: [id], onDelete: SetNull)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([status])
+  @@map("subcontractors")
+}
+
+model SubcontractorDocument {
+  id Int @id @default(autoincrement())
+
+  subcontractor_id Int
+  subcontractor    Subcontractor @relation(fields: [subcontractor_id], references: [id], onDelete: Cascade)
+
+  document_type SubcontractorDocumentType
+  file_path     String
+  file_name     String?
+
+  expiry_date DateTime?
+
+  created_at DateTime @default(now())
+
+  @@index([subcontractor_id])
+  @@map("subcontractor_documents")
+}
+
+enum SubcontractorDocumentType {
+  insurance
+  abnRegistration
+  contract
+  other
+
+  @@map("subcontractor_document_type")
+}
+
+// ─── Pre Material ────
+
+model PreMaterial {
+  id Int @id @default(autoincrement())
+
+  name        String  @unique
+  description String?
+
+  jobs        Job[]
+
+  created_at DateTime @default(now())
+
+  @@map("pre_materials")
+}
+
+// ─── Messaging ────
+
+enum SenderType {
+  ADMIN
+  DRIVER
+
+  @@map("sender_type")
+}
+
+model JobMessage {
+  id            Int      @id @default(autoincrement())
+
+  job_id        Int
+  job           Job      @relation(fields: [job_id], references: [id])
+
+  sender_type   SenderType
+  sender_id     Int
+
+  message       String
+
+  created_at    DateTime @default(now())
+
+  recipients    JobMessageRecipient[]
+
+  @@map("job_messages")
+}
+
+model JobMessageRecipient {
+  id           Int @id @default(autoincrement())
+
+  message_id   Int
+  message      JobMessage @relation(fields: [message_id], references: [id])
+
+  driver_id    Int
+  driver       Driver @relation(fields: [driver_id], references: [id])
+
+  is_read      Boolean @default(false)
+  read_at      DateTime?
+
+  @@index([driver_id])
+  @@map("job_message_recipients")
+}
+
+
+model ActivityLog {
+  id           Int      @id @default(autoincrement())
+
+  actor_id     Int?
+  actor        User?    @relation(fields: [actor_id], references: [id])
+
+  entity_type  String   // Job, Invoice, Driver
+  entity_id    Int
+
+  action       String   // "created", "updated", "paid", etc.
+
+  message      String   // Human readable
+
+  metadata     Json?    // Optional structured data
+
+  created_at   DateTime @default(now())
+
+  @@index([entity_type, entity_id])
 }

@@ -55,6 +55,7 @@ export const authentication = async (req: Request, res: Response, next: NextFunc
             refreshToken,
             config.JWT_REFRESH_TOKEN_SECRET_KEY as string
         );
+        console.log("decodedRefresh", decodedRefresh);
         if (!decodedRefresh) {
 
             res.clearCookie("accessToken");
@@ -130,18 +131,21 @@ export const authentication = async (req: Request, res: Response, next: NextFunc
 
 
         const isProduction = process.env.NODE_ENV === "production";
+        let sameSiteValue: 'strict' | 'lax' | 'none' =
+            (process.env.COOKIE_SAMESITE as 'strict' | 'lax' | 'none')
+            || (isProduction ? 'strict' : 'lax');
 
         res.cookie("accessToken", newAccessToken, {
             httpOnly: true,
-            secure: isProduction,
-            sameSite: isProduction ? "strict" : "lax",
+            secure: sameSiteValue == "none" ? true : isProduction,
+            sameSite: sameSiteValue,
             maxAge: constant.ACCESS_TOKEN_COOKIES_EXPIRY,
         });
 
         res.cookie("refreshToken", newRefreshToken, {
             httpOnly: true,
-            secure: isProduction,
-            sameSite: isProduction ? "strict" : "lax",
+            secure: sameSiteValue == "none" ? true : isProduction,
+            sameSite:sameSiteValue,
             maxAge: constant.REFRESH_TOKEN_COOKIES_EXPIRY,
         });
 

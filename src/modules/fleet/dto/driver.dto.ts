@@ -11,6 +11,7 @@ export interface ICreateDriverDTO extends IAddDriverRateDTO {
     licenseExpiry?: Date | string;
     vehicleId?: number;
     isMobileAccess?: boolean;
+    subcontractorId?: number;
 
 }
 
@@ -32,6 +33,7 @@ export interface IUpdateDriverDTO {
     licenseClass?: LicenseClass;
     licenseExpiry?: Date | string;
     vehicleId?: number | null; // can be null to unset
+    subcontractorId?: number | null; // can unset
     isMobileAccess?: boolean;
     hourlyRate?: number;
     hourlyRateWeekend?: number;
@@ -49,4 +51,5 @@ export interface IGetDriversQuery {
     limit?: number;
     status?: string;
     search?: string;
+    driverType?: 'inHouse' | 'subcontractor';
 }

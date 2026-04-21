@@ -226,19 +226,22 @@ export default class SharedAuthService implements ISharedAuthService {
 		(user as any).last_login = new Date(); // Ensure the returned object has it 
 
 		const isProduction = process.env.NODE_ENV === "production";
+		let sameSiteValue: 'strict' | 'lax' | 'none' =
+			(process.env.COOKIE_SAMESITE as 'strict' | 'lax' | 'none')
+			|| (isProduction ? 'strict' : 'lax');
 
 		// 🔥 Set Cookies
 		res.cookie("accessToken", accessToken, {
 			httpOnly: true,
-			secure: isProduction,
-			sameSite: isProduction ? "strict" : "lax", // lax works for localhost
+			secure: sameSiteValue == "none" ? true : isProduction,
+			sameSite: sameSiteValue,
 			maxAge: constant.ACCESS_TOKEN_COOKIES_EXPIRY
 		});
 
 		res.cookie("refreshToken", refreshToken, {
 			httpOnly: true,
-			secure: isProduction,
-			sameSite: isProduction ? "strict" : "lax",
+			secure: sameSiteValue == "none" ? true : isProduction,
+			sameSite: sameSiteValue,
 			maxAge: constant.REFRESH_TOKEN_COOKIES_EXPIRY
 		});
 

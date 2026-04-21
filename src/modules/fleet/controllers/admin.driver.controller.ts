@@ -92,7 +92,8 @@ export default class AdminDriverController {
     // GET /api/v1/admin/driver/stats
     getDriverStats = async (req: Request, res: Response): Promise<void> => {
         try {
-            const stats = await this.adminDriverService.getDriverStats();
+            const driverType = req.query.driverType as 'inHouse' | 'subcontractor' | undefined;
+            const stats = await this.adminDriverService.getDriverStats(driverType);
             sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Driver stats'), 200, stats);
         } catch (e: any) { throw new GenericError(e, `Error in getDriverStats ${__filename}`); }
     };

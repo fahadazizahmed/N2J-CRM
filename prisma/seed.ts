@@ -23,6 +23,13 @@ const VEHICLE_TYPES = [
     "Prime Mover"
 ];
 
+const PRE_MATERIALS = [
+    "Hydraulic Oil",
+    "VENM",
+    "Gravel",
+    "Sand"
+];
+
 async function main() {
     console.log(`Start seeding roles...`);
 
@@ -46,6 +53,17 @@ async function main() {
             },
         });
         console.log(`Created/Updated vehicle type: ${type.name}`);
+    }
+
+    for (const material of PRE_MATERIALS) {
+        const preMaterial = await prisma.preMaterial.upsert({
+            where: { name: material },
+            update: {},
+            create: {
+                name: material,
+            },
+        });
+        console.log(`Created/Updated pre material: ${preMaterial.name}`);
     }
 
 

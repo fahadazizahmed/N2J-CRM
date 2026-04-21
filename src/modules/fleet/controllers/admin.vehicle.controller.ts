@@ -95,7 +95,8 @@ export default class AdminVehicleController {
     // GET /api/v1/admin/vehicle/stats
     getVehicleStats = async (req: Request, res: Response): Promise<void> => {
         try {
-            const stats = await this.adminVehicleService.getVehicleStats();
+            const vehicleType = req.query.vehicleType as 'inHouse' | 'subcontractor' | undefined;
+            const stats = await this.adminVehicleService.getVehicleStats(vehicleType);
             sendSuccessResponse(res, InfoMessages.GENERIC.ITEM_FETCHED_SUCCESSFULLY('Vehicle stats'), 200, stats);
         } catch (e: any) { throw new GenericError(e, `Error in getVehicleStats ${__filename}`); }
     };

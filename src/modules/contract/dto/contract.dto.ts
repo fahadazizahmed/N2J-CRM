@@ -1,4 +1,4 @@
-import { CreditTerms, ContractStatus, BillingType, TollHandling, ContractType, ApprovalStatus } from '../../../../generated/prisma';
+import { CreditTerms, ContractStatus, BillingType, TollHandling, ContractType, ApprovalStatus, GstStatus } from '../../../../generated/prisma';
 
 
 
@@ -10,6 +10,9 @@ export interface ICreateContractDTO {
     countryCode?: string;        // → TipCompany.country_code
     contractType?: ContractType;
     email: string;
+    gstStatus?: GstStatus;     // → Client.gst_status
+    creditTerms?: CreditTerms; // → Client.credit_terms
+    creditScore?: number;     // → Client.credit_score (default 0)
 }
 
 
@@ -30,6 +33,9 @@ export interface IUpdateContractDTO {
     countryCode?: string;        // → TipCompany.country_code
     abn?: string;
     contractType?: ContractType;
+    gstStatus?: GstStatus;     // → Client.gst_status
+    creditTerms?: CreditTerms; // → Client.credit_terms
+    creditScore?: number;     // → Client.credit_score (default 0)
 }
 
 

@@ -4,10 +4,12 @@ import { NotFoundError } from '../../../errors/not-found-error';
 import { auditService } from '../../../services/audit.service';
 import constant from '../../../common/constant/constant';
 import ErrorMessages from '../../../common/constant/errors';
-import { ClientStatus, ContractStatus, SequenceEntity, Prisma, ContractType, TollHandling, JobStatus, JobPriority, VehicleStatus, DriverStatus, JobAssignmentStatus, DriverDocumentType } from '../../../../generated/prisma';
+import { ClientStatus, ContractStatus, SequenceEntity, Prisma, ContractType, TollHandling, JobStatus, JobPriority, VehicleStatus, DriverStatus, JobAssignmentStatus, DriverDocumentType, VehicleCategory, DriverType, JobDocumentType, SubcontractorStatus } from '../../../../generated/prisma';
+import { ImageService } from '../../../services/image.service';
 import { generateEntityCode } from '../../../helper/helper.method';
-import { ICreateJobDTO, IGetJobsQuery, IUpdateJobDTO, IUpdateJobStatusDTO } from '../dto/contract.dto';
+import { ICreateJobDTO, IGetJobsQuery, IUpdateJobDTO, IUpdateJobStatusDTO, IUpsertDispatchDTO } from '../dto/job.dto';
 import { UnProcessableEntityError } from '../../../errors';
+import { activityService } from '../../../services/activity.service';
 
 
 
@@ -16,12 +18,17 @@ export interface IAdminJobService {
     createJob(dto: ICreateJobDTO, actorId: number | null): Promise<any>;
     updateJob(id: number, dto: IUpdateJobDTO, actorId: number | null): Promise<any>;
     updateJobStatus(id: number, dto: IUpdateJobStatusDTO, actorId: number | null): Promise<any>;
+    upsertDispatch(id: number, dto: IUpsertDispatchDTO, actorId: number | null): Promise<any>;
     getJobById(id: number): Promise<any>;
     getJobs(query: IGetJobsQuery): Promise<any>;
     getJobStats(): Promise<any>;
+    getPreMaterials(): Promise<any[]>;
+    uploadDispatchDocs(jobId: number, documentType: JobDocumentType, files: Express.Multer.File[], documentName?: string, actorId?: number | null): Promise<any>;
+    getJobLogs(jobId: number): Promise<any[]>;
 }
 
 export default class AdminJobService implements IAdminJobService {
+    private imageService = new ImageService();
 
     public async createJob(
         dto: ICreateJobDTO,
@@ -36,7 +43,8 @@ export default class AdminJobService implements IAdminJobService {
             pickUpAddress,
             entryDate,
             deliveryDate,
-            material,
+            materialId,
+            materialName,
             quantity,
             quantityUnit,
             rate,
@@ -52,10 +60,10 @@ export default class AdminJobService implements IAdminJobService {
 
         } = dto;
 
-
         const clientExist = await prisma.client.findUnique({
             where: { id: clientId },
         });
+
         if (!clientExist) throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Client'));
         if (clientExist.status !== ClientStatus.active) {
             throw new UnProcessableEntityError("Client is not active");
@@ -90,7 +98,6 @@ export default class AdminJobService implements IAdminJobService {
                 throw new UnProcessableEntityError("Tip contract is not active.");
             }
         }
-
         if (!vehicles || vehicles.length === 0) {
             throw new BadRequestError("At least one vehicle must be assigned to the job.");
         }
@@ -150,7 +157,7 @@ export default class AdminJobService implements IAdminJobService {
         if (vehicleJobExist) {
             const assignedVehicleId = vehicleJobExist.assignments.find(a => vehicleIds.includes(a.vehicle_id))?.vehicle_id;
             const overlappingVehicle = vehiclesExist.find(v => v.id === assignedVehicleId);
-            throw new UnProcessableEntityError(`Vehicle ${overlappingVehicle?.vehicle_number || assignedVehicleId} is already assigned to another job during this time.`);
+            throw new UnProcessableEntityError(`Vehicle ${overlappingVehicle?.registration_number || assignedVehicleId} is already assigned to another job during this time.`);
         }
 
         // ── Driver Validations ────────────────────────────────────────────────
@@ -165,17 +172,33 @@ export default class AdminJobService implements IAdminJobService {
             throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND(`Driver ${missingId}`));
         }
 
-        // 2. No driver can be in a status that prevents them from working
-        const unavailableDriver = driversExist.find(d =>
-            d.status === DriverStatus.suspended ||
-            d.status === DriverStatus.inactive
-        );
-        if (unavailableDriver) {
-            throw new UnProcessableEntityError(
-                `Driver ${unavailableDriver.first_name} ${unavailableDriver.last_name} cannot be assigned because their status is '${unavailableDriver.status}'.`
-            );
+        for (const driver of driversExist) {
+            if (driver.status !== DriverStatus.active && driver.status !== DriverStatus.idle) {
+                throw new UnProcessableEntityError(`Driver ${driver.first_name} ${driver.last_name} cannot be assigned because their status is '${driver.status}'.`);
+            }
         }
 
+        // ── Cross-Validation (Subcontractor match) ────────────────────────────
+        for (const item of vehicles) {
+            const vehicle = vehiclesExist.find(v => v.id === item.vehicleId);
+            const driver = driversExist.find(d => d.id === item.driverId);
+
+            if (vehicle && driver) {
+                if (vehicle.vehicle_category === VehicleCategory.subcontractor) {
+                    if (!vehicle.subcontractor_id) {
+                        throw new BadRequestError(`Vehicle ${vehicle.registration_number || vehicle.id} is missing subcontractor association.`);
+                    }
+                    if (driver.subcontractor_id !== vehicle.subcontractor_id) {
+                        throw new BadRequestError(`Driver ${driver.first_name} ${driver.last_name} does not belong to the same subcontractor as vehicle ${vehicle.registration_number || vehicle.id}.`);
+                    }
+                } else {
+
+                    if (driver.subcontractor_id) {
+                        throw new BadRequestError(`In-house vehicle ${vehicle.registration_number || vehicle.id} cannot be assigned to subcontractor driver ${driver.first_name} ${driver.last_name}.`);
+                    }
+                }
+            }
+        }
         // ── Create Job + Assignments in a Serializable transaction ───────────
         // All overlap/double-booking checks run INSIDE the transaction so that
         // concurrent requests cannot both pass the checks and both write —
@@ -196,11 +219,12 @@ export default class AdminJobService implements IAdminJobService {
                 },
                 include: { assignments: true }
             });
+
             if (vehicleConflict) {
                 const vid = vehicleConflict.assignments.find(a => vehicleIds.includes(a.vehicle_id))?.vehicle_id;
                 const veh = vehiclesExist.find(v => v.id === vid);
                 throw new UnProcessableEntityError(
-                    `Vehicle ${veh?.vehicle_number || vid} is already assigned to another job during this time.`
+                    `Vehicle ${veh?.registration_number || vid} is already assigned to another job during this time.`
                 );
             }
 
@@ -233,7 +257,28 @@ export default class AdminJobService implements IAdminJobService {
                 prefix: constant.CODE_PREFIX.JOB,
             });
 
-            // 2. Create the Job
+            // ── Material check / creation ────────
+            let finalMaterialId: number;
+            if (materialId) {
+                const preMaterial = await tx.preMaterial.findUnique({
+                    where: { id: materialId }
+                });
+                if (!preMaterial) {
+                    throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND("Material Type"));
+                }
+                finalMaterialId = preMaterial.id;
+            } else if (materialName) {
+                let preMaterial = await tx.preMaterial.findFirst({
+                    where: { name: { equals: materialName, mode: 'insensitive' } }
+                });
+                if (!preMaterial) {
+                    preMaterial = await tx.preMaterial.create({ data: { name: materialName } });
+                }
+                finalMaterialId = preMaterial.id;
+            } else {
+                throw new BadRequestError('Either materialId or materialName must be provided');
+            }
+
             const newJob = await tx.job.create({
                 data: {
                     job_number: jobNumber,
@@ -246,7 +291,7 @@ export default class AdminJobService implements IAdminJobService {
                     pick_up_address: pickUpAddress,
                     entry_date: new Date(entryDate),
                     delivery_date: new Date(deliveryDate),
-                    material,
+                    material_id: finalMaterialId,
                     quantity,
                     quantity_unit: quantityUnit,
                     rate,
@@ -291,11 +336,20 @@ export default class AdminJobService implements IAdminJobService {
             },
         });
 
+        activityService.log({
+            actor_id: actorId,
+            action: "created",
+            entity_type: constant.ENTITY_TYPE.JOB,
+            entity_id: job.id,
+            message: `Job ${job.job_number} created`,
+        });
+
         return job;
 
     }
 
     public async updateJob(id: number, dto: IUpdateJobDTO, actorId: number | null): Promise<any> {
+
         const existingJob = await prisma.job.findUnique({ where: { id } });
         if (!existingJob) throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Job'));
 
@@ -348,7 +402,6 @@ export default class AdminJobService implements IAdminJobService {
         if (dto.pickUpAddress !== undefined) updateData.pick_up_address = dto.pickUpAddress;
         if (dto.entryDate !== undefined) updateData.entry_date = new Date(dto.entryDate);
         if (dto.deliveryDate !== undefined) updateData.delivery_date = new Date(dto.deliveryDate);
-        if (dto.material !== undefined) updateData.material = dto.material;
         if (dto.quantity !== undefined) updateData.quantity = dto.quantity;
         if (dto.quantityUnit !== undefined) updateData.quantity_unit = dto.quantityUnit;
         if (dto.rate !== undefined) updateData.rate = dto.rate;
@@ -412,9 +465,10 @@ export default class AdminJobService implements IAdminJobService {
             if (vehicleJobExist) {
                 const assignedVehicleId = vehicleJobExist.assignments.find(a => vehicleIds.includes(a.vehicle_id))?.vehicle_id;
                 const overlappingVehicle = vehiclesExist.find(v => v.id === assignedVehicleId);
-                throw new UnProcessableEntityError(`Vehicle ${overlappingVehicle?.vehicle_number || assignedVehicleId} is already assigned to another job during this time.`);
+                throw new UnProcessableEntityError(`Vehicle ${overlappingVehicle?.registration_number || assignedVehicleId} is already assigned to another job during this time.`);
             }
 
+            // ── Driver Validations ────────────────────────────────────────────
             driversExist = await prisma.driver.findMany({ where: { id: { in: driverIds } } });
             if (driversExist.length !== driverIds.length) {
                 const foundIds = driversExist.map(d => d.id);
@@ -422,14 +476,50 @@ export default class AdminJobService implements IAdminJobService {
                 throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND(`Driver ${missingId}`));
             }
 
-            const unavailableDriver = driversExist.find(d =>
-                d.status === DriverStatus.suspended ||
-                d.status === DriverStatus.inactive
-            );
-            if (unavailableDriver) {
-                throw new UnProcessableEntityError(
-                    `Driver ${unavailableDriver.first_name} ${unavailableDriver.last_name} cannot be assigned because their status is '${unavailableDriver.status}'.`
-                );
+            for (const driver of driversExist) {
+                if (driver.status !== DriverStatus.active && driver.status !== DriverStatus.idle) {
+                    throw new UnProcessableEntityError(`Driver ${driver.first_name} ${driver.last_name} cannot be assigned because their status is '${driver.status}'.`);
+                }
+            }
+
+            // ── Driver overlap pre-check ──────────────────────────────────────
+            const driverJobExist = await prisma.job.findFirst({
+                where: {
+                    id: { not: existingJob.id },
+                    assignments: { some: { driver_id: { in: driverIds } } },
+                    status: { in: [JobStatus.scheduled, JobStatus.inProgress] },
+                    OR: [
+                        { entry_date: { lt: new Date(effectiveDeliveryDate) }, delivery_date: { gt: new Date(effectiveEntryDate) } }
+                    ]
+                },
+                include: { assignments: true }
+            });
+
+            if (driverJobExist) {
+                const assignedDriverId = driverJobExist.assignments.find(a => driverIds.includes(a.driver_id))?.driver_id;
+                const overlappingDriver = driversExist.find(d => d.id === assignedDriverId);
+                throw new UnProcessableEntityError(`Driver ${overlappingDriver ? `${overlappingDriver.first_name} ${overlappingDriver.last_name}` : assignedDriverId} is already assigned to another job during this time.`);
+            }
+
+            // ── Cross-Validation (Subcontractor match) ────────────────────────
+            for (const item of dto.vehicles) {
+                const vehicle = vehiclesExist.find(v => v.id === item.vehicleId);
+                const driver = driversExist.find(d => d.id === item.driverId);
+
+                if (vehicle && driver) {
+                    if (vehicle.vehicle_category === VehicleCategory.subcontractor) {
+                        if (!vehicle.subcontractor_id) {
+                            throw new BadRequestError(`Vehicle ${vehicle.registration_number || vehicle.id} is missing subcontractor association.`);
+                        }
+                        if (driver.subcontractor_id !== vehicle.subcontractor_id) {
+                            throw new BadRequestError(`Driver ${driver.first_name} ${driver.last_name} does not belong to the same subcontractor as vehicle ${vehicle.registration_number || vehicle.id}.`);
+                        }
+                    } else {
+                        if (driver.subcontractor_id) {
+                            throw new BadRequestError(`In-house vehicle ${vehicle.registration_number || vehicle.id} cannot be assigned to subcontractor driver ${driver.first_name} ${driver.last_name}.`);
+                        }
+                    }
+                }
             }
         }
 
@@ -447,10 +537,12 @@ export default class AdminJobService implements IAdminJobService {
                     include: { assignments: true }
                 });
                 if (vehicleConflict) {
+
                     const vid = vehicleConflict.assignments.find(a => vehicleIds.includes(a.vehicle_id))?.vehicle_id;
                     const veh = vehiclesExist.find(v => v.id === vid);
+
                     throw new UnProcessableEntityError(
-                        `Vehicle ${veh?.vehicle_number || vid} is already assigned to another job during this time.`
+                        `Vehicless ${veh?.registration_number || vid} is already assigned to another job during this time.`
                     );
                 }
 
@@ -483,6 +575,31 @@ export default class AdminJobService implements IAdminJobService {
                         status: JobAssignmentStatus.assigned,
                     })),
                 });
+            }
+
+
+            if (dto.materialId !== undefined || dto.materialName !== undefined) {
+                let finalMaterialId: number | undefined;
+                if (dto.materialId) {
+                    const preMaterial = await tx.preMaterial.findUnique({
+                        where: { id: dto.materialId }
+                    });
+                    if (!preMaterial) {
+                        throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND("Material Type"));
+                    }
+                    finalMaterialId = preMaterial.id;
+                } else if (dto.materialName) {
+                    let preMaterial = await tx.preMaterial.findFirst({
+                        where: { name: { equals: dto.materialName, mode: 'insensitive' } }
+                    });
+                    if (!preMaterial) {
+                        preMaterial = await tx.preMaterial.create({ data: { name: dto.materialName } });
+                    }
+                    finalMaterialId = preMaterial.id;
+                }
+                if (finalMaterialId) {
+                    updateData.material_id = finalMaterialId;
+                }
             }
 
             return tx.job.update({
@@ -531,6 +648,162 @@ export default class AdminJobService implements IAdminJobService {
             },
         });
 
+        activityService.log({
+            actor_id: actorId,
+            entity_type: constant.ENTITY_TYPE.JOB,
+            entity_id: updatedJob.id,
+            action: "status_changed", // optional but useful
+            message: `Job status changed from ${existingJob.status} → ${dto.status}`,
+        });
+
+        return updatedJob;
+    }
+
+    public async upsertDispatch(
+        id: number,
+        dto: IUpsertDispatchDTO,
+        actorId: number | null
+    ): Promise<any> {
+
+        const existingJob = await prisma.job.findUnique({
+            where: { id }
+        });
+
+        if (!existingJob) {
+            throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Job'));
+        }
+
+        // ❌ Prevent dispatch on completed/cancelled jobs (important)
+        if (existingJob.status === JobStatus.completed || existingJob.status === JobStatus.cancelled) {
+            throw new BadRequestError('Cannot dispatch a completed or cancelled job');
+        }
+
+        const isFirstDispatch = !existingJob.dispatch_created_at;
+
+        // ✅ Build update object safely (ONLY update provided fields)
+        const updateData: any = {
+            ...(dto.stagingLocation !== undefined && {
+                staging_location: dto.stagingLocation
+            }),
+
+            ...(dto.loadingTime && {
+                loading_time: new Date(dto.loadingTime)
+            }),
+
+            ...(dto.trucksLoadingAtOnce !== undefined && {
+                trucks_loading_at_once: dto.trucksLoadingAtOnce
+            }),
+
+            ...(dto.njaContactName !== undefined && {
+                nja_contact_name: dto.njaContactName
+            }),
+
+            ...(dto.njaContactPhone !== undefined && {
+                nja_contact_phone: dto.njaContactPhone
+            }),
+
+            ...(dto.loadingInstruction !== undefined && {
+                loading_instruction: dto.loadingInstruction
+            }),
+
+            ...(dto.additionalInformation !== undefined && {
+                additional_information: dto.additionalInformation
+            }),
+
+            ...(dto.ppeRequirements !== undefined && {
+                ppe_requirements: dto.ppeRequirements
+            }),
+        };
+
+        // ✅ First-time dispatch logic
+        if (isFirstDispatch) {
+            updateData.dispatch_created_at = new Date();
+            updateData.status = JobStatus.dispatched; // 🔥 important
+        }
+
+        const updatedJob = await prisma.job.update({
+            where: { id },
+            data: updateData,
+        });
+
+        // ── Audit log (simple — just records the action) ─────────────────────
+        auditService.logWithRetry({
+            actor_id: actorId,
+            action: isFirstDispatch
+                ? constant.AUDIT_LOG_ACTION.CREATE
+                : constant.AUDIT_LOG_ACTION.UPDATE,
+            entity_type: constant.ENTITY_TYPE.JOB,
+            entity_id: updatedJob.id,
+            metadata: {
+                job_number: updatedJob.job_number,
+                section: 'Dispatch Notice',
+                action: isFirstDispatch ? 'Dispatch Notice created' : 'Dispatch Notice updated',
+            },
+        });
+
+        // ── Activity log — rich "Field updated from X → Y" messages ──────────
+        if (isFirstDispatch) {
+            activityService.log({
+                actor_id: actorId,
+                action: 'created',
+                entity_type: constant.ENTITY_TYPE.JOB,
+                entity_id: updatedJob.id,
+                message: `Dispatch Notice created for Job ${updatedJob.job_number}`,
+            });
+        } else {
+            type DispatchFieldKey =
+                | 'stagingLocation' | 'loadingTime' | 'trucksLoadingAtOnce'
+                | 'njaContactName' | 'njaContactPhone' | 'loadingInstruction'
+                | 'additionalInformation' | 'ppeRequirements';
+
+            const DISPATCH_FIELD_MAP: Record<DispatchFieldKey, { label: string; existingKey: keyof typeof existingJob }> = {
+                stagingLocation: { label: 'Staging Location', existingKey: 'staging_location' },
+                loadingTime: { label: 'Loading Time', existingKey: 'loading_time' },
+                trucksLoadingAtOnce: { label: 'Trucks Loading At Once', existingKey: 'trucks_loading_at_once' },
+                njaContactName: { label: 'NJA Contact Name', existingKey: 'nja_contact_name' },
+                njaContactPhone: { label: 'NJA Contact Phone', existingKey: 'nja_contact_phone' },
+                loadingInstruction: { label: 'Loading Instructions', existingKey: 'loading_instruction' },
+                additionalInformation: { label: 'Additional Information', existingKey: 'additional_information' },
+                ppeRequirements: { label: 'PPE Requirements', existingKey: 'ppe_requirements' },
+            };
+
+            const normalize = (v: any): string => {
+                if (v === null || v === undefined) return '';
+                if (v instanceof Date) return v.toISOString();
+                return String(v);
+            };
+
+            const changedFields = (Object.keys(DISPATCH_FIELD_MAP) as DispatchFieldKey[])
+                .filter(k => {
+                    if ((dto as any)[k] === undefined) return false;
+                    const incomingVal = k === 'loadingTime'
+                        ? (dto.loadingTime ? new Date(dto.loadingTime) : null)
+                        : (dto as any)[k];
+                    return normalize(incomingVal) !== normalize(existingJob[DISPATCH_FIELD_MAP[k].existingKey]);
+                })
+                .map(k => {
+                    const { label, existingKey } = DISPATCH_FIELD_MAP[k];
+                    const oldRaw = existingJob[existingKey];
+                    const newRaw = k === 'loadingTime'
+                        ? (dto.loadingTime ? new Date(dto.loadingTime) : null)
+                        : (dto as any)[k];
+                    const oldVal = normalize(oldRaw) || 'N/A';
+                    const newVal = normalize(newRaw) || 'N/A';
+                    return `${label} updated from ${oldVal} → ${newVal}`;
+                });
+
+            for (const message of changedFields) {
+                activityService.log({
+                    actor_id: actorId,
+                    action: 'updated',
+                    entity_type: constant.ENTITY_TYPE.JOB,
+                    entity_id: updatedJob.id,
+                    message,
+                });
+            }
+        }
+
+
         return updatedJob;
     }
 
@@ -541,6 +814,7 @@ export default class AdminJobService implements IAdminJobService {
                 client: {
                     select: { id: true, client_name: true, user: { select: { id: true, name: true, email: true } } }
                 },
+                documents: true,
                 contract: {
                     select: { id: true, contract_number: true, contract_title: true }
                 },
@@ -550,7 +824,9 @@ export default class AdminJobService implements IAdminJobService {
                 creator: {
                     select: { id: true, name: true, email: true }
                 },
-
+                material: {
+                    select: { id: true, name: true }
+                },
 
                 assignments: {
                     include: {
@@ -559,7 +835,7 @@ export default class AdminJobService implements IAdminJobService {
                         },
                         driver: {
                             select: {
-                                id: true, first_name: true, last_name: true, status: true, phone: true, license_class: true, license_expiry: true, license_number: true,
+                                id: true, first_name: true, last_name: true, status: true, phone: true, license_class: true, license_expiry: true, license_number: true, driver_type: true,
                                 documents: {
                                     where: {
                                         document_type: DriverDocumentType.license,
@@ -577,7 +853,21 @@ export default class AdminJobService implements IAdminJobService {
             }
         });
         if (!job) throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Job'));
-        return job;
+
+        let documentsWithUrls = [];
+        if (job.documents && job.documents.length > 0) {
+            documentsWithUrls = await Promise.all(
+                job.documents.map(async (doc: any) => ({
+                    ...doc,
+                    document_url: await this.imageService.getImageUrl(doc.file_path)
+                }))
+            );
+        }
+
+        return {
+            ...job,
+            documents: documentsWithUrls
+        };
     }
 
 
@@ -610,7 +900,7 @@ export default class AdminJobService implements IAdminJobService {
             where.OR = [
                 { job_number: { contains: search, mode: 'insensitive' } },
                 { pick_up_address: { contains: search, mode: 'insensitive' } },
-                { material: { contains: search, mode: 'insensitive' } },
+                { material: { name: { contains: search, mode: 'insensitive' } } },
                 { notes: { contains: search, mode: 'insensitive' } }
             ];
         }
@@ -634,13 +924,16 @@ export default class AdminJobService implements IAdminJobService {
                     creator: {
                         select: { id: true, name: true, email: true }
                     },
+                    material: {
+                        select: { id: true, name: true }
+                    },
                     assignments: {
                         include: {
                             vehicle: {
                                 select: { id: true, registration_number: true, vehicle_number: true, make: true, model: true, vehicle_category: true }
                             },
                             driver: {
-                                select: { id: true, first_name: true, last_name: true, status: true, phone: true, license_class: true, license_expiry: true, license_number: true }
+                                select: { id: true, first_name: true, last_name: true, status: true, phone: true, license_class: true, license_expiry: true, license_number: true, driver_type: true }
                             }
                         }
                     }
@@ -680,681 +973,107 @@ export default class AdminJobService implements IAdminJobService {
         };
     }
 
-    //     id: number,
-    //     dto: IUpdateContractDTO,
-    //     actorId: number | null
-    // ): Promise<ClientContract> {
-    //     // 1. Validate contract exists
-    //     const existingContract = await prisma.clientContract.findUnique({
-    //         where: { id },
-    //     });
 
-    //     if (!existingContract) {
-    //         throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Contract'));
-    //     }
 
-    //     // // 2. Guard: draft-only fields cannot be edited once the contract is no longer in draft status
-    //     const draftOnlyFieldsProvided =
-    //         dto.startDate !== undefined ||
-    //         dto.endDate !== undefined ||
-    //         // dto.creditTermsOverride !== undefined ||
-    //         dto.specialTerms !== undefined;
-
-    //     if (draftOnlyFieldsProvided && existingContract.status !== ContractStatus.draft) {
-    //         throw new BadRequestError(ErrorMessages.CONTRACT.DRAFT_ONLY_FIELDS);
-    //     }
-    //     // 4. Update the Contract and Audit Log in a Transaction
-    //     const updatedContract = await prisma.$transaction(async (tx) => {
-    //         const updateData: any = {};
-    //         if (dto.address !== undefined) updateData.address = dto.address;
-    //         if (dto.phone !== undefined) updateData.phone = dto.phone;
-    //         if (dto.countryCode !== undefined) updateData.country_code = dto.countryCode;
-    //         if (dto.abn !== undefined) updateData.abn = dto.abn;
-    //         if (dto.companyName !== undefined) updateData.company_name = dto.companyName;
-    //         if (dto.email !== undefined) updateData.email = dto.email;
-    //         if (dto.contractTitle !== undefined) updateData.contract_title = dto.contractTitle;
-    //         if (dto.startDate !== undefined) updateData.start_date = new Date(dto.startDate);
-    //         if (dto.endDate !== undefined) updateData.end_date = new Date(dto.endDate);
-    //         if (dto.specialTerms !== undefined) updateData.special_terms = dto.specialTerms;
-    //         if (dto.contractType !== undefined) updateData.contract_type = dto.contractType;
-    //         if (dto.contractContactName !== undefined) updateData.contract_contact_name = dto.contractContactName;
-    //         if (dto.contractContactEmail !== undefined) updateData.contract_contact_email = dto.contractContactEmail;
-    //         if (dto.contractContactPhone !== undefined) updateData.contract_contact_phone = dto.contractContactPhone;
-    //         if (dto.status !== undefined) updateData.status = dto.status;
-
-    //         return tx.clientContract.update({
-    //             where: { id },
-    //             data: updateData,
-    //         });
-    //     }, { maxWait: constant.TX_MAX_WAIT, timeout: constant.TX_MAX_WAIT });
-
-    //     // Fire-and-forget audit log
-    //     auditService.logWithRetry({
-    //         actor_id: actorId,
-    //         action: constant.AUDIT_LOG_ACTION.UPDATE,
-    //         entity_type: constant.ENTITY_TYPE.CONTRACT,
-    //         entity_id: updatedContract.id,
-    //         metadata: {
-    //             client_id: updatedContract.client_id,
-    //             contract_number: updatedContract.contract_number,
-    //             contractManagerId: updatedContract.contract_manager_id,
-    //             action: InfoMessages.LOGGER_MESSAGE.CONTRACT_GENERATE_INFOT_UPDATED_SUCCESSFULLY || "Contract updated successfully",
-    //             changes: dto
-    //         },
-    //     });
-
-    //     return updatedContract;
-    // }
-
-    // // ─── Update Contract Status ──────────────────────────────────────────
-    // public async updateContractStatus(
-    //     id: number,
-    //     dto: IUpdateContractStatusDTO,
-    //     actorId: number | null
-    // ): Promise<ClientContract> {
-    //     // 1. Validate contract exists (fetch with client for eligibility checks)
-    //     const existing = await prisma.clientContract.findUnique({
-    //         where: { id },
-    //         select: {
-    //             id: true,
-    //             status: true,
-    //             contract_number: true,
-    //             client_id: true,
-    //             start_date: true,
-    //             end_date: true,
-    //             client: {
-    //                 select: {
-    //                     id: true,
-    //                     status: true,
-    //                     gst_status: true,
-    //                     credit_score: true,
-
-    //                 },
-    //             },
-    //         },
-    //     });
-
-    //     if (!existing) {
-    //         throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Contract'));
-    //     }
-
-    //     // 2. Run eligibility checks ONLY when activating the contract
-    //     if (dto.status === ContractStatus.active) {
-    //         if (!existing.start_date) {
-    //             throw new BadRequestError(ErrorMessages.CONTRACT_RATE.START_DATE_MUST_GIVEN);
-    //         }
-
-    //         // Contract end date must be in the future — no point activating an already-expired contract
-    //         if (existing.end_date) {
-    //             const today = new Date();
-    //             today.setUTCHours(0, 0, 0, 0);
-    //             const endDate = new Date(existing.end_date);
-    //             endDate.setUTCHours(0, 0, 0, 0);
-    //             if (endDate < today) {
-    //                 throw new BadRequestError(
-    //                     'Contract cannot be activated because its end date is in the past. Please update the end date to a future date.'
-    //                 );
-    //             }
-    //         }
-
-    //         // Contract must have at least one rate before activation
-    //         const rateCount = await prisma.clientContractRate.count({
-    //             where: { contract_id: id },
-    //         });
-
-    //         if (rateCount === 0) {
-    //             throw new BadRequestError(ErrorMessages.CONTRACT_RATE.NO_RATES);
-    //         }
-
-    //     }
-    //     //  5. Update status only
-    //     const updated = await prisma.clientContract.update({
-    //         where: { id },
-    //         data: { status: dto.status },
-    //     });
-
-    //     // 6. Fire-and-forget audit log
-    //     auditService.logWithRetry({
-    //         actor_id: actorId,
-    //         action: constant.AUDIT_LOG_ACTION.UPDATE,
-    //         entity_type: constant.ENTITY_TYPE.CONTRACT,
-    //         entity_id: id,
-    //         metadata: {
-    //             contract_number: existing.contract_number,
-    //             previous_status: existing.status,
-    //             new_status: dto.status,
-    //         },
-    //     });
-
-    //     return updated;
-    // }
-
-
-    // // ─── Update Contract Approval Status ────────────────────────────────
-    // public async updateContractApprovalStatus(
-    //     id: number,
-    //     dto: IUpdateContractApprovalStatusDTO,
-    //     actorId: number | null
-    // ): Promise<ClientContract> {
-    //     // 1. Validate contract exists
-    //     const existing = await prisma.clientContract.findUnique({
-    //         where: { id },
-    //         select: {
-    //             id: true,
-    //             status: true,
-    //             approval_status: true,
-    //             contract_number: true,
-    //             client_id: true,
-    //             start_date: true,
-    //             end_date: true,
-    //             client: {
-    //                 select: {
-    //                     id: true,
-    //                     status: true,
-    //                     gst_status: true,
-    //                     credit_score: true,
-    //                 },
-    //             },
-    //         },
-    //     });
-
-    //     if (!existing) {
-    //         throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Contract'));
-    //     }
-
-    //     // 2. Build update payload — include reason only when provided
-    //     const updateData: { approval_status: typeof dto.status; approval_reason?: string | null } = {
-    //         approval_status: dto.status,
-    //     };
-
-    //     if (dto.reason !== undefined) {
-    //         updateData.approval_reason = dto.reason ?? null;
-    //     }
-
-    //     // 3. Persist the changes
-    //     const updated = await prisma.clientContract.update({
-    //         where: { id },
-    //         data: updateData,
-    //     });
-
-    //     // 4. Fire-and-forget audit log
-    //     auditService.logWithRetry({
-    //         actor_id: actorId,
-    //         action: constant.AUDIT_LOG_ACTION.UPDATE,
-    //         entity_type: constant.ENTITY_TYPE.CONTRACT,
-    //         entity_id: id,
-    //         metadata: {
-    //             contract_number: existing.contract_number,
-    //             previous_approval_status: existing.approval_status,
-    //             new_approval_status: dto.status,
-    //             ...(dto.reason ? { reason: dto.reason } : {}),
-    //         },
-    //     });
-
-    //     return updated;
-    // }
-
-
-
-    // public async uploadContractDocs(contractId: number, clientId: number, file: any, documentName: string): Promise<any> {
-    //     // Validate contract exists
-    //     const existingContract = await prisma.clientContract.findUnique({
-    //         where: { id: contractId },
-    //         select: { id: true, contract_number: true, client_id: true }
-    //     });
-
-    //     if (!existingContract) {
-    //         throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Contract'));
-    //     }
-
-    //     const customBlobName = constant.MEDIA_PATHS.CONTRACT_MEDIA(existingContract.contract_number, file.filename);
-
-    //     // File url to return
-    //     this.imageService.upload(file.path, customBlobName);
-
-
-    //     // Store the document path in the new ClientContractDocument table
-    //     const document = await prisma.clientContractDocument.create({
-    //         data: {
-    //             contract_id: contractId,
-    //             document_path: customBlobName,
-    //             file_name: documentName,
-
-
-    //         },
-    //     });
-    //     let doc = { ...document, document_url: await this.imageService.getImageUrl(customBlobName), }
-
-    //     return { doc };
-    // }
-
-    // // ─── Get Contract By ID ───────────────────────────────────────────────
-    // public async getContractById(id: number): Promise<any> {
-    //     const contract = await prisma.clientContract.findUnique({
-    //         where: { id },
-    //         include: contractFullInclude,
-    //     });
-    //     if (!contract) throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Contract'));
-
-    //     // Resolve signed URLs for each document (parallel)
-    //     const documentsWithUrls = await Promise.all(
-    //         contract.documents.map(async (doc) => ({
-    //             ...doc,
-    //             document_url: await this.imageService.getImageUrl(doc.document_path),
-    //         }))
-    //     );
-
-    //     return { ...contract, documents: documentsWithUrls };
-    // }
-
-    // // ─── Get Contracts with Pagination, Filter & Search ────────────────────
-    // public async getContracts(query: IGetContractsQuery): Promise<{
-    //     data: any[];
-    //     pagination: { total: number; page: number; limit: number; hasNext: boolean; hasPrevious: boolean };
-    //     totalDraft: number;
-    // }> {
-    //     const page = query.page ?? constant.PAGINATION.DEFAULT_PAGE;
-    //     const limit = query.limit ?? constant.PAGINATION.DEFAULT_LIMIT;
-    //     const skip = (page - 1) * limit;
-
-    //     const where: Prisma.ClientContractWhereInput = {};
-
-    //     // ─ Filter by status ────────────────────────────────────────────
-    //     if (query.status) {
-    //         where.status = query.status as ContractStatus;
-    //     }
-    //     if (query.approval) {
-    //         where.approval_status = query.approval as ApprovalStatus;
-    //     }
-
-    //     // ─ Filter by contract type ─────────────────────────────────────
-    //     // If a specific type is passed (e.g. 'supplier' or 'client'), filter by it.
-    //     // If nothing is passed, return all contracts (both supplier and client).
-    //     if (query.contractType) {
-    //         where.contract_type = query.contractType as ContractType;
-    //     }
-
-    //     // ─ Search: contract number, title, contact name, email, client name ─
-    //     if (query.search) {
-    //         const search = query.search.trim();
-    //         where.OR = [
-    //             { contract_number: { contains: search, mode: 'insensitive' } },
-    //             { contract_title: { contains: search, mode: 'insensitive' } },
-    //             { contract_contact_name: { contains: search, mode: 'insensitive' } },
-    //             { contract_contact_email: { contains: search, mode: 'insensitive' } },
-    //             { address: { contains: search, mode: 'insensitive' } },
-    //             { company_name: { contains: search, mode: 'insensitive' } },
-    //             { abn: { contains: search, mode: 'insensitive' } },
-    //             { email: { contains: search, mode: 'insensitive' } },
-    //             { phone: { contains: search, mode: 'insensitive' } },
-    //         ];
-    //     }
-
-    //     const [data, total, totalDraft] = await prisma.$transaction([
-    //         prisma.clientContract.findMany({
-    //             where,
-    //             skip,
-    //             take: limit,
-    //             orderBy: { created_at: 'desc' },
-    //             include: contractFullInclude,
-    //         }),
-    //         prisma.clientContract.count({ where }),
-    //         prisma.clientContract.count({ where: { status: ContractStatus.draft,contract_type:query.contractType } }),
-    //     ]);
-
-    //     const hasNext = (skip + data.length) < total;
-    //     const hasPrevious = page > 1;
-
-    //     return {
-    //         data,
-    //         pagination: { total, page, limit, hasNext, hasPrevious },
-    //         totalDraft,
-    //     };
-    // }
-
-
-
-    // private toDateOnly(date: Date): Date {
-    //     return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-    // }
-
-    // // ─── Helper: subOneDayUTC ───────────────────────────────────────────────────
-    // private subOneDay(date: Date): Date {
-    //     const d = new Date(date);
-    //     d.setUTCDate(d.getUTCDate() - 1);
-    //     return d;
-    // } private async assertNoOverlap(
-    //     contractId: number,
-    //     effectiveFrom: Date,
-    //     effectiveTo: Date | null,
-    //     excludeRateId: number | null
-    // ): Promise<void> {
-
-
-    //     // Condition: existing rate overlaps the new rate's period
-    //     const overlapCondition: any = {
-    //         contract_id: contractId,
-    //         // The existing rate starts before or on the new rate's end (or new rate has no end → always)
-    //         effective_from: effectiveTo ? { lte: effectiveTo } : undefined,
-    //         OR: [
-    //             // The existing rate has no end → extends to +infinity, so always overlaps
-    //             { effective_to: null },
-    //             // The existing rate ends on or after the new rate's start
-    //             { effective_to: { gte: effectiveFrom } },
-    //         ],
-    //     };
-
-
-    //     if (excludeRateId) {
-    //         overlapCondition.id = { not: excludeRateId };
-    //     }
-
-    //     // Remove undefined keys (Prisma doesn't like them)
-    //     if (!effectiveTo) {
-    //         delete overlapCondition.effective_from;
-    //     }
-
-    //     const conflicting = await prisma.clientContractRate.findFirst({
-    //         where: overlapCondition,
-    //     });
-
-    //     if (conflicting) {
-    //         throw new BadRequestError(ErrorMessages.CONTRACT_RATE.OVERLAP);
-    //     }
-    // }
-
-    // public async addRate(
-    //     contractId: number,
-    //     dto: IAddContractRateDTO,
-    //     actorId: number | null
-    // ): Promise<ClientContractRate> {
-    //     // 1. Fetch contract
-    //     const contract = await prisma.clientContract.findUnique({
-    //         where: { id: contractId },
-    //         select: { id: true, status: true, start_date: true, end_date: true },
-    //     });
-
-    //     if (!contract) throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Contract'));
-
-    //     // 2. Only draft contracts can use this endpoint
-    //     if (contract.status !== ContractStatus.draft) {
-    //         throw new BadRequestError(ErrorMessages.CONTRACT_RATE.DRAFT_NOT_EDITABLE_AFTER_ACTIVATE);
-    //     }
-    //     if (!contract.start_date || !contract.end_date) throw new BadRequestError(ErrorMessages.CONTRACT_RATE.DATE_MUST_GIVEN);
-
-    //     const effectiveFrom = this.toDateOnly(new Date(dto.effectiveFrom));
-    //     const contractStart = this.toDateOnly(contract.start_date);
-    //     const contractEnd = contract.end_date ? this.toDateOnly(contract.end_date) : null;
-
-    //     // 3. effectiveFrom must not be before contract start_date
-    //     if (effectiveFrom < contractStart) {
-    //         throw new BadRequestError(ErrorMessages.CONTRACT_RATE.EFFECTIVE_FROM_BEFORE_CONTRACT_START);
-    //     }
-    //     if (contractEnd && effectiveFrom > contractEnd) {
-    //         throw new BadRequestError(
-    //             ErrorMessages.CONTRACT_RATE.EFFECTIVE_FROM_AFTER_CONTRACT_END
-    //         );
-    //     }
-    //     // 4. Overlap check — no other rate on this contract can cover effectiveFrom
-    //     await this.assertNoOverlap(contractId, effectiveFrom, null, null);
-
-    //     // 5. Insert the rate
-    //     const rate = await prisma.clientContractRate.create({
-    //         data: {
-    //             contract_id: contractId,
-    //             billing_type: dto.billingType,
-    //             rate: dto.rate,
-    //             material_type: dto.materialType ?? null,
-    //             minimum_charge: dto.minimumCharge ?? null,
-    //             toll_handling: dto.tollHandling ?? TollHandling.included,
-    //             effective_from: effectiveFrom,
-    //             effective_to: null, // open-ended — this is the latest rate
-    //         },
-    //     });
-
-    //     // 6. Audit log (fire-and-forget)
-    //     auditService.logWithRetry({
-    //         actor_id: actorId,
-    //         action: constant.AUDIT_LOG_ACTION.CREATE,
-    //         entity_type: constant.ENTITY_TYPE.CONTRCT_RATE,
-    //         entity_id: rate.id,
-    //         metadata: { contract_id: contractId, billing_type: dto.billingType, rate: dto.rate, effective_from: effectiveFrom },
-    //     });
-
-    //     return rate;
-    // }
-
-
-    // public async updateDraftContract(
-    //     contractId: number,
-    //     rateId: number,
-    //     dto: IUpdateContractRateDTO,
-    //     actorId: number | null
-    // ): Promise<ClientContractRate> {
-
-    //     // 1. Fetch contract
-    //     const contract = await prisma.clientContract.findUnique({
-    //         where: { id: contractId },
-    //         select: { id: true, status: true, start_date: true, end_date: true },
-    //     });
-
-    //     if (!contract) {
-    //         throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Contract'));
-    //     }
-
-    //     // 2. Only draft contracts can update rates
-    //     if (contract.status !== ContractStatus.draft) {
-    //         throw new BadRequestError('Rates can only be edited when contract is in draft state.');
-    //     }
-
-    //     // 3. Fetch the rate
-    //     const rate = await prisma.clientContractRate.findFirst({
-    //         where: {
-    //             id: rateId,
-    //             contract_id: contractId,
-    //         },
-    //     });
-
-    //     if (!rate) {
-    //         throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Contract Rate'));
-    //     }
-    //     if (!contract.start_date || !contract.end_date) throw new BadRequestError(ErrorMessages.CONTRACT_RATE.DATE_MUST_GIVEN);
-
-    //     const effectiveFrom = this.toDateOnly(new Date(dto.effectiveFrom));
-    //     const contractStart = this.toDateOnly(contract.start_date);
-    //     const contractEnd = contract.end_date ? this.toDateOnly(contract.end_date) : null;
-
-    //     // 4. Validate effective_from
-    //     if (effectiveFrom < contractStart) {
-    //         throw new BadRequestError(
-    //             ErrorMessages.CONTRACT_RATE.EFFECTIVE_FROM_BEFORE_CONTRACT_START
-    //         );
-    //     }
-    //     if (contractEnd && effectiveFrom > contractEnd) {
-    //         throw new BadRequestError(
-    //             ErrorMessages.CONTRACT_RATE.EFFECTIVE_FROM_AFTER_CONTRACT_END
-    //         );
-    //     }
-
-
-    //     // normalize effectiveTo
-    //     const effectiveTo = dto.effectiveTo
-    //         ? this.toDateOnly(new Date(dto.effectiveTo))
-    //         : null;
-
-    //     // NEW VALIDATION
-    //     if (effectiveTo && effectiveTo < effectiveFrom) {
-    //         throw new BadRequestError(
-    //             "effectiveTo must be greater than or equal to effectiveFrom"
-    //         );
-    //     }
-
-    //     // 5. Prevent overlap with other rates
-    //     await this.assertNoOverlap(
-    //         contractId,
-    //         effectiveFrom,
-    //         dto.effectiveTo ? new Date(dto.effectiveTo) : null,
-    //         rateId
-    //     );
-
-    //     // 6. Update rate
-    //     const updatedRate = await prisma.clientContractRate.update({
-    //         where: { id: rateId },
-    //         data: {
-    //             billing_type: dto.billingType,
-    //             rate: dto.rate,
-    //             material_type: dto.materialType ?? null,
-    //             minimum_charge: dto.minimumCharge ?? null,
-    //             toll_handling: dto.tollHandling ?? 'included',
-    //             effective_from: effectiveFrom,
-    //             effective_to: dto.effectiveTo ? new Date(dto.effectiveTo) : null,
-    //         },
-    //     });
-
-    //     // 7. Audit log
-    //     auditService.logWithRetry({
-    //         actor_id: actorId,
-    //         action: constant.AUDIT_LOG_ACTION.UPDATE,
-    //         entity_type: constant.ENTITY_TYPE.CONTRCT_RATE,
-    //         entity_id: updatedRate.id,
-    //         metadata: {
-    //             contract_id: contractId,
-    //             billing_type: dto.billingType,
-    //             rate: dto.rate,
-    //             effective_from: effectiveFrom,
-    //         },
-    //     });
-
-    //     return updatedRate;
-    // }
-
-    // public async changeRate(
-    //     contractId: number,
-    //     dto: IChangeContractRateDTO,
-    //     actorId: number | null
-    // ): Promise<ClientContractRate> {
-    //     // 1. Fetch contract
-    //     const contract = await prisma.clientContract.findUnique({
-    //         where: { id: contractId },
-    //         select: { id: true, status: true, start_date: true, end_date: true },
-    //     });
-
-    //     if (!contract) throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Contract'));
-
-    //     // 2. Draft contracts cannot use the rate-change endpoint
-    //     if (contract.status === ContractStatus.draft) {
-    //         throw new BadRequestError(ErrorMessages.CONTRACT_RATE.RATE_CHANGE_NOT_ALLOWED_ON_DRAFT);
-    //     }
-
-    //     const effectiveFrom = this.toDateOnly(new Date(dto.effectiveFrom));
-    //     const contractStart = this.toDateOnly(contract.start_date);
-    //     const contractEnd = contract.end_date ? this.toDateOnly(contract.end_date) : null;
-
-    //     // 3. effectiveFrom must not be before contract start_date
-    //     if (effectiveFrom < contractStart) {
-    //         throw new BadRequestError(ErrorMessages.CONTRACT_RATE.EFFECTIVE_FROM_BEFORE_CONTRACT_START);
-    //     }
-    //     if (contractEnd && effectiveFrom > contractEnd) {
-    //         throw new BadRequestError(
-    //             ErrorMessages.CONTRACT_RATE.EFFECTIVE_FROM_AFTER_CONTRACT_END
-    //         );
-    //     }
-
-
-    //     // 4. Find the current active rate covering effectiveFrom
-    //     //    (effective_from <= effectiveFrom AND (effective_to IS NULL OR effective_to >= effectiveFrom))
-    //     const currentActiveRate = await prisma.clientContractRate.findFirst({
-    //         where: {
-    //             contract_id: contractId,
-    //             effective_from: { lte: effectiveFrom },
-    //             OR: [
-    //                 { effective_to: null },
-    //                 { effective_to: { gte: effectiveFrom } },
-    //             ],
-    //         },
-    //         orderBy: { effective_from: 'desc' }, // latest first in case of multiple matches
-    //     });
-
-    //     if (!currentActiveRate) {
-    //         throw new BadRequestError(
-    //             ErrorMessages.CONTRACT_RATE.NO_ACTIVE_RATE_ON_DATE(effectiveFrom.toISOString().split('T')[0])
-    //         );
-    //     }
-
-    //     // 5. If effectiveFrom == currentActiveRate.effective_from they would collide (zero-duration old rate).
-    //     //    In that case we simply replace the existing rate's values in-place ONLY if this is the open-ended
-    //     //    (effective_to = null) rate AND no jobs have billed against it yet.
-    //     //    For now we reject this edge case with a clear message — keep the append-only rule strict.
-    //     if (effectiveFrom.getTime() === this.toDateOnly(currentActiveRate.effective_from).getTime()) {
-    //         throw new BadRequestError(
-    //             'effectiveFrom cannot be the same as the current rate\'s effective_from. The new rate must start at least 1 day after the current one.'
-    //         );
-    //     }
-
-    //     // 6. Overlap check against any CLOSED rate whose period would conflict
-    //     //    (excluding the current open-ended rate we are about to close)
-    //     await this.assertNoOverlap(contractId, effectiveFrom, null, currentActiveRate.id);
-
-    //     // 7. Execute in a transaction: close old rate + insert new rate
-    //     const newRate = await prisma.$transaction(async (tx) => {
-    //         // Close old rate: effective_to = effectiveFrom - 1 day
-    //         const closeDate = this.subOneDay(effectiveFrom);
-    //         await tx.clientContractRate.update({
-    //             where: { id: currentActiveRate.id },
-    //             data: { effective_to: closeDate },
-    //         });
-
-    //         // Insert new rate
-    //         return tx.clientContractRate.create({
-    //             data: {
-    //                 contract_id: contractId,
-    //                 billing_type: dto.billingType,
-    //                 rate: dto.rate,
-    //                 material_type: dto.materialType ?? null,
-    //                 minimum_charge: dto.minimumCharge ?? null,
-    //                 toll_handling: dto.tollHandling ?? 'included',
-    //                 effective_from: effectiveFrom,
-    //                 effective_to: null, // open-ended
-    //             },
-    //         });
-    //     }, { maxWait: 10000, timeout: 20000 });
-
-    //     // 8. Audit log (fire-and-forget)
-    //     auditService.logWithRetry({
-    //         actor_id: actorId,
-    //         action: constant.AUDIT_LOG_ACTION.UPDATE,
-    //         entity_type: constant.ENTITY_TYPE.CONTRCT_RATE,
-    //         entity_id: newRate.id,
-    //         metadata: {
-    //             contract_id: contractId,
-    //             closed_rate_id: currentActiveRate.id,
-    //             closed_rate_to: this.subOneDay(effectiveFrom).toISOString().split('T')[0],
-    //             new_billing_type: dto.billingType,
-    //             new_rate: dto.rate,
-    //             new_effective_from: effectiveFrom.toISOString().split('T')[0],
-    //         },
-    //     });
-
-    //     return newRate;
-    // }
-
-
-
-
-    // public async getRates(contractId: number): Promise<ClientContractRate[]> {
-    //     const contract = await prisma.clientContract.findUnique({
-    //         where: { id: contractId },
-    //         select: { id: true },
-    //     });
-    //     if (!contract) throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Contract'));
-
-    //     return prisma.clientContractRate.findMany({
-    //         where: { contract_id: contractId },
-    //         orderBy: { effective_from: 'asc' },
-    //     });
-    // }
-
-
-
+    public async getPreMaterials(): Promise<any[]> {
+        return prisma.preMaterial.findMany({
+            orderBy: { name: 'asc' }
+        });
+    }
+
+
+
+
+
+    public async uploadDispatchDocs(
+        jobId: number,
+        documentType: JobDocumentType,
+        files: Express.Multer.File[],
+        documentName?: string,
+        actorId?: number | null
+    ): Promise<any> {
+        const existingJob = await prisma.job.findUnique({
+            where: { id: jobId },
+            select: { id: true, job_number: true }
+        });
+
+        if (!existingJob) {
+            throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Job'));
+        }
+
+        const uploadedDocs = await Promise.all(
+            files.map(async (file) => {
+                const blobName = constant.MEDIA_PATHS.JOB_MEDIA(
+                    existingJob.job_number,
+                    documentType,
+                    file.filename
+                );
+
+                await this.imageService.upload(file.path, blobName);
+
+                const document = await prisma.jobDocument.create({
+                    data: {
+                        job_id: jobId,
+                        document_type: documentType,
+                        file_path: blobName,
+                        file_name: documentName || file.originalname,
+                    }
+                });
+
+                return { ...document, document_url: await this.imageService.getImageUrl(blobName) };
+            })
+        );
+
+        auditService.logWithRetry({
+            actor_id: actorId ?? null,
+            action: constant.AUDIT_LOG_ACTION.UPDATE,
+            entity_type: constant.ENTITY_TYPE.JOB,
+            entity_id: jobId,
+            metadata: {
+                message: `Uploaded ${files.length} dispatch document(s)`,
+                document_type: documentType
+            },
+        });
+
+        activityService.log({
+            actor_id: actorId ?? null,
+            entity_type: constant.ENTITY_TYPE.JOB,
+            entity_id: jobId,
+            action: "document_uploaded",
+            message: `${files.length} document(s) uploaded`,
+        });
+
+        return uploadedDocs;
+    }
+
+    public async getJobLogs(jobId: number): Promise<any[]> {
+        const job = await prisma.job.findUnique({
+            where: { id: jobId },
+            select: { id: true }
+        });
+
+        if (!job) {
+            throw new NotFoundError(ErrorMessages.GENERIC.ITEM_NOT_FOUND('Job'));
+        }
+
+        const logs = await prisma.activityLog.findMany({
+            where: {
+                entity_type: constant.ENTITY_TYPE.JOB,
+                entity_id: jobId,
+            },
+            include: {
+                actor: {
+                    select: { id: true, name: true, email: true }
+                }
+            },
+            orderBy: { created_at: 'desc' },
+        });
+
+        return logs.map((log) => ({
+            label: log.message,
+            actor: log.actor?.name || 'System',
+            timestamp: log.created_at,
+        }));
+    }
 
 }

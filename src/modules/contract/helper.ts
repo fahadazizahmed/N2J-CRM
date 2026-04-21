@@ -10,12 +10,14 @@ export async function generateContractNumber(
     const year = new Date().getFullYear();
 
     // Find sequence row for current year
+    // @ts-ignore
     let sequenceRow = await tx.contractSequence.findUnique({
         where: { year },
     });
 
     if (!sequenceRow) {
         // First contract for this year
+        // @ts-ignore
         sequenceRow = await tx.contractSequence.create({
             data: {
                 year,
@@ -24,6 +26,7 @@ export async function generateContractNumber(
         });
     } else {
         // Atomic increment
+        // @ts-ignore
         sequenceRow = await tx.contractSequence.update({
             where: { year },
             data: {

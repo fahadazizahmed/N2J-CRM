@@ -44,6 +44,36 @@ export const createDriverValidationRules = () => {
             .notEmpty().withMessage(ErrorMessages.VALIDATION.REQURED_FILED_MISSING('Driver type'))
             .isIn(Object.values(DriverType)).withMessage('Invalid driver type'),
 
+
+        body('subcontractorId')
+            .optional({ nullable: true })
+            .isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID("Subcontractor id")).toInt(),
+
+        body().custom((value) => {
+            if (value.driverType === 'subcontractor' && !value.subcontractorId) {
+                throw new Error('Subcontractor id is required when driver category is subcontractor');
+            }
+            if (value.driverType === 'inHouse' && value.subcontractorId) {
+                throw new Error('Subcontractor id should not be provided for in-house driver');
+            }
+            return true;
+        }),
+
+        body().custom((value) => {
+            if (value.driverType === DriverType.subcontractor) {
+
+                const hasAnyRate =
+                    value.hourlyRate != null ||
+                    value.hourlyRateWeekend != null ||
+                    value.nightRate != null ||
+                    value.nightRateWeekend != null;
+
+                if (!hasAnyRate) {
+                    throw new Error('At least one rate is required for subcontractor drivers');
+                }
+            }
+            return true;
+        }),
         body('licenseNumber')
             .optional({ checkFalsy: true }).isString().notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('License number')),
 
@@ -90,10 +120,6 @@ export const updateDriverValidationRules = () => {
     return [
         body('firstName').optional().notEmpty().withMessage(ErrorMessages.VALIDATION.REQURED_FILED_MISSING('First name')).isString(),
         body('lastName').optional().notEmpty().withMessage(ErrorMessages.VALIDATION.REQURED_FILED_MISSING('Last name')).isString(),
-        // body('email')
-        //     .optional()
-        //     .notEmpty().withMessage(ErrorMessages.VALIDATION.REQURED_FILED_MISSING('Email'))
-        //     .isEmail().withMessage(ErrorMessages.VALIDATION.INVALID_EMAIL_FORMAT),
         body('phone')
             .optional() // makes phone optional
             .isString()
@@ -123,6 +149,20 @@ export const updateDriverValidationRules = () => {
             .notEmpty().withMessage(ErrorMessages.VALIDATION.REQURED_FILED_MISSING('Driver type'))
             .isIn(Object.values(DriverType)).withMessage('Invalid driver type'),
 
+        body('subcontractorId')
+            .optional({ nullable: true })
+            .isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID("Subcontractor id")).toInt(),
+
+        body().custom((value) => {
+            if (value.driverType === 'subcontractor' && !value.subcontractorId) {
+                throw new Error('Subcontractor id is required when driver category is subcontractor');
+            }
+            if (value.driverType === 'inHouse' && value.subcontractorId) {
+                throw new Error('Subcontractor id should not be provided for in-house driver');
+            }
+            return true;
+        }),
+
         body('licenseNumber')
             .optional({ nullable: true }).isString().notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('License number')),
 
@@ -149,6 +189,10 @@ export const getDriversValidationRules = (): ValidationChain[] => [
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage(ErrorMessages.PAGINATION.LIMIT_MUST_BETWEEN_1_AND_100).toInt(),
     query('status').optional().custom((value) => Object.values(DriverType).includes(value as any)).withMessage(ErrorMessages.CLIENT.INVALID_CLIENT_STATUS),
     query('search').optional().isString().trim(),
+    query('driverType')
+        .optional()
+        .isIn(['inHouse', 'subcontractor'])
+        .withMessage("Invalid vehicleType. Must be one of: inHouse, subcontractor"),
 ];
 
 export const uploadDriverDocsValidationRules = (): ValidationChain[] => {

@@ -10,7 +10,8 @@ export interface ICreateJobDTO {
     pickUpAddress: string;
     entryDate: string;
     deliveryDate: string;
-    material: string;
+    materialId?: number;
+    materialName?: string;
     quantity: number;
     quantityUnit: QuantityUnit;
     rate: number;
@@ -31,6 +32,19 @@ export interface IUpdateJobDTO extends Partial<ICreateJobDTO> {
 
 export interface IUpdateJobStatusDTO {
     status: JobStatus;
+}
+
+export interface IUpsertDispatchDTO {
+    // Required
+    stagingLocation: string;
+    loadingTime: string; // ISO8601
+    // Optional
+    trucksLoadingAtOnce?: number;
+    njaContactName?: string;
+    njaContactPhone?: string;
+    loadingInstruction?: string;
+    additionalInformation?: string;
+    ppeRequirements?: string;
 }
 
 export interface IGetJobsQuery {

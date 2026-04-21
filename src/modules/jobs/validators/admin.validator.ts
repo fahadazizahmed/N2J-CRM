@@ -1,6 +1,6 @@
 import { body, param, query, ValidationChain } from 'express-validator';
 import ErrorMessages from '../../../common/constant/errors';
-import { JobPriority, QuantityUnit, JobStatus } from '../../../../generated/prisma';
+import { JobPriority, QuantityUnit, JobStatus, JobDocumentType } from '../../../../generated/prisma';
 import { BillingType, TollHandling } from '../../../../generated/prisma';
 
 
@@ -60,10 +60,21 @@ export const createJobValidationRules = (): ValidationChain[] => [
             return true;
         }),
 
-    body('material')
-        .exists().withMessage(ErrorMessages.VALIDATION.KEY_MISSING('material')).bail()
-        .notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('material')).bail()
-        .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('material')),
+    body('materialId')
+        .optional()
+        .isInt({ min: 1 }).withMessage('materialId must be a positive integer')
+        .toInt(),
+
+    body('materialName')
+        .optional()
+        .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('materialName')),
+
+    body().custom((value, { req }) => {
+        if (!req.body.materialId && !req.body.materialName) {
+            throw new Error('Either materialId or materialName must be provided');
+        }
+        return true;
+    }),
 
     body('quantity')
         .exists().withMessage(ErrorMessages.VALIDATION.KEY_MISSING('quantity')).bail()
@@ -172,7 +183,8 @@ export const updateJobValidationRules = (): ValidationChain[] => [
             }
             return true;
         }),
-    body('material').optional().isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('material')),
+    body('materialId').optional().isInt({ min: 1 }).withMessage('materialId must be a positive integer').toInt(),
+    body('materialName').optional().isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('materialName')),
     body('quantity').optional().isFloat({ min: 0.01 }).withMessage('Quantity must be a positive number').toFloat(),
     body('quantityUnit').optional().custom((v) => Object.values(QuantityUnit).includes(v)).withMessage("Invalid quantityUnit"),
     body('rate').optional().isFloat({ min: 0.01 }).withMessage('Rate must be a positive number').toFloat(),
@@ -191,4 +203,55 @@ export const updateJobStatusValidationRules = (): ValidationChain[] => [
         .exists().withMessage(ErrorMessages.VALIDATION.KEY_MISSING('status')).bail()
         .notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('status')).bail()
         .custom((v) => Object.values(JobStatus).includes(v)).withMessage("Invalid status")
+];
+
+export const upsertDispatchValidationRules = (): ValidationChain[] => [
+    param('id').isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID("Job id")).toInt(),
+
+    // ── Required ──────────────────────────────────────────────────────────
+    body('stagingLocation')
+        .exists().withMessage(ErrorMessages.VALIDATION.KEY_MISSING('stagingLocation')).bail()
+        .notEmpty().withMessage(ErrorMessages.VALIDATION.EMPTY_VALUE('stagingLocation')).bail()
+        .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('stagingLocation')),
+
+    body('loadingTime')
+        .exists().withMessage(ErrorMessages.VALIDATION.KEY_MISSING('loadingTime')).bail()
+        .isISO8601().withMessage(ErrorMessages.CONTRACT.INVALID_DATE('loadingTime')),
+
+    // ── Optional ──────────────────────────────────────────────────────────
+    body('trucksLoadingAtOnce')
+        .optional()
+        .isInt({ min: 1 }).withMessage('trucksLoadingAtOnce must be a positive integer')
+        .toInt(),
+
+    body('njaContactName')
+        .optional()
+        .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('njaContactName')),
+
+    body('njaContactPhone')
+        .optional()
+        .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('njaContactPhone')),
+
+    body('loadingInstruction')
+        .optional()
+        .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('loadingInstruction')),
+
+    body('additionalInformation')
+        .optional()
+        .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('additionalInformation')),
+
+    body('ppeRequirements')
+        .optional()
+        .isString().withMessage(ErrorMessages.VALIDATION.VALUE_MUST_BE_STRING('ppeRequirements')),
+];
+
+export const uploadDispatchMediaValidationRules = (): ValidationChain[] => [
+    param('id').isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID("id")).toInt(),
+    body('documentType')
+        .exists().withMessage(ErrorMessages.VALIDATION.KEY_MISSING('documentType'))
+        .isIn(Object.values(JobDocumentType)).withMessage('Invalid document type'),
+];
+
+export const getJobLogsValidationRules = (): ValidationChain[] => [
+    param('id').isInt({ min: 1 }).withMessage(ErrorMessages.VALIDATION.INVALID_ID("Job id")).toInt(),
 ];

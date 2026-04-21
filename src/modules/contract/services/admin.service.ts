@@ -5,7 +5,7 @@ import { auditService } from '../../../services/audit.service';
 import constant from '../../../common/constant/constant';
 import ErrorMessages from '../../../common/constant/errors';
 import { ICreateContractDTO, IUpdateContractDTO, IUpdateContractStatusDTO, IGetContractsQuery, IUpdateContractApprovalStatusDTO } from '../dto/contract.dto';
-import { ClientContract, ClientStatus, ContractStatus, GstStatus, SequenceEntity, Prisma, ClientContractRate, ContractType, TollHandling, ApprovalStatus, } from '../../../../generated/prisma';
+import { ClientContract, ClientStatus, ContractStatus, GstStatus, SequenceEntity, Prisma, ClientContractRate, ContractType, TollHandling, ApprovalStatus, CreditTerms, } from '../../../../generated/prisma';
 import { generateContractNumber } from '../helper';
 import InfoMessages from '../../../common/constant/messages';
 import { generateEntityCode, normalizeBlobName } from '../../../helper/helper.method';
@@ -32,7 +32,6 @@ export interface IAdminContractService {
     updateContract(id: number, dto: IUpdateContractDTO, actorId: number | null): Promise<ClientContract>;
     updateContractStatus(id: number, dto: IUpdateContractStatusDTO, actorId: number | null): Promise<ClientContract>;
     updateContractApprovalStatus(id: number, dto: IUpdateContractApprovalStatusDTO, actorId: number | null): Promise<ClientContract>;
-
     uploadContractDocs(contractId: number, clientId: number, file: any, documentName: string): Promise<any>;
     getContractById(id: number): Promise<any>;
     getContracts(query: IGetContractsQuery): Promise<{
@@ -68,7 +67,7 @@ export default class AdminContractService implements IAdminContractService {
     ): Promise<ClientContract> {
 
         try {
-            const { companyName, abn, address, phone, countryCode, contractType, email } = dto;
+            const { companyName, abn, address, phone, countryCode, contractType, email, gstStatus, creditTerms, creditScore } = dto;
 
             const contract = await prisma.$transaction(async (tx) => {
 
@@ -90,6 +89,9 @@ export default class AdminContractService implements IAdminContractService {
                         status: ContractStatus.draft,
                         contract_type: contractType ? contractType : ContractType.client,
                         email: email,
+                        gst_status: gstStatus as GstStatus,
+                        credit_terms: creditTerms as CreditTerms,
+                        credit_score: creditScore ?? 0,
                     },
                 });
                 return newContract;
@@ -142,6 +144,7 @@ export default class AdminContractService implements IAdminContractService {
         if (draftOnlyFieldsProvided && existingContract.status !== ContractStatus.draft) {
             throw new BadRequestError(ErrorMessages.CONTRACT.DRAFT_ONLY_FIELDS);
         }
+        console.log("My dto",dto)
         // 4. Update the Contract and Audit Log in a Transaction
         const updatedContract = await prisma.$transaction(async (tx) => {
             const updateData: any = {};
@@ -160,6 +163,11 @@ export default class AdminContractService implements IAdminContractService {
             if (dto.contractContactEmail !== undefined) updateData.contract_contact_email = dto.contractContactEmail;
             if (dto.contractContactPhone !== undefined) updateData.contract_contact_phone = dto.contractContactPhone;
             if (dto.status !== undefined) updateData.status = dto.status;
+            // ✅ ADD THESE
+            if (dto.gstStatus !== undefined) updateData.gst_status = dto.gstStatus;
+            if (dto.creditTerms !== undefined) updateData.credit_terms = dto.creditTerms;
+            if (dto.creditScore !== undefined) updateData.credit_score = dto.creditScore;
+
 
             return tx.clientContract.update({
                 where: { id },

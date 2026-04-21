@@ -19,8 +19,8 @@ const constant = {
   // ACCESS_TOKEN_COOKIES_EXPIRY: 15 * 60 * 1000,//15 min
   // REFRESH_TOKEN_COOKIES_EXPIRY: 30 * 24 * 60 * 60 * 1000, // 30 days
 
-  ACCESS_TOKEN_COOKIES_EXPIRY: 1 * 60 * 1000,//15 min
-  REFRESH_TOKEN_COOKIES_EXPIRY: 40 * 60 * 1000, // 30 days
+  ACCESS_TOKEN_COOKIES_EXPIRY: 15 * 60 * 1000, // 15 minutes
+  REFRESH_TOKEN_COOKIES_EXPIRY: 7 * 24 * 60 * 60 * 1000, // 7 days
 
   CRM_NAME: "N2J CRM",
   AUDIT_LOG_ACTION: {
@@ -42,7 +42,8 @@ const constant = {
     EMAIL: 'Email',
     CONTRACT: 'Contract',
     CONTRCT_RATE: "ContractRate",
-    DRIVER: 'Drvier'
+    DRIVER: 'Drvier',
+    SUBCONTRACTOR: 'Subcontractor'
   },
   ROLES: {
     ADMIN: 'admin',
@@ -62,12 +63,16 @@ const constant = {
     INVOICE: 'NJA-INV',
     VEHICLE: 'NJA-VH',
     EMAIL: 'NJA-EM',
-    CONTRACT: 'NJA-CT'
+    CONTRACT: 'NJA-CT',
+    SUBCONTRACTOR: 'NJA-SC',
+    DRIVER: 'NJA-DR'
   },
   MEDIA_PATHS: {
     DRIVER_DOC: (driverId: number | string, documentType: string, filename: string) => `fleet/driver/${driverId}/docs/${documentType}/${filename}`,
     VEHICLE_MEDIA: (registrationNumber: string, documentType: string, filename: string) => `fleet/vehicle/${registrationNumber}/docs/${documentType}/${filename}`,
-    CONTRACT_MEDIA: (contractNumber: string,filename: string) => `contract/${contractNumber}/docs/${filename}`
+    CONTRACT_MEDIA: (contractNumber: string, filename: string) => `contract/${contractNumber}/docs/${filename}`,
+    SUBCONTRACTOR_MEDIA: (subcontractorCode: string, documentType: string, filename: string) => `subcontractor/${subcontractorCode}/docs/${documentType}/${filename}`,
+    JOB_MEDIA: (jobNumber: string, documentType: string, filename: string) => `job/${jobNumber}/docs/${documentType}/${filename}`,
   },
   TX_MAX_WAIT: 10000,
   TX_TIMEOUT: 20000

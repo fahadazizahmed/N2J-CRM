@@ -98,7 +98,7 @@ const ErrorMessages = {
   },
   JOB: {
     INVALID_DATES: 'entry_date must be before delivery_date',
-
+    NOT_FOUND: 'Job not found',
   }
 };
 

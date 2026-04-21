@@ -28,11 +28,21 @@ export default {
 
   shared: {
     GET_ACTIVE_IDLE_NOT_ASSIGN_VEHICLES: '/fleet/get-active-idle--not-assign-vehicles',
+    GET_ACTIVE_IDLE_NOT_ASSIGN_VEHICLES_SUBCONTRACTOR_VEHICLE: '/fleet/get-active-idle--not-assign-vehicles-subcontractor/:id',
+    GET_ALL_ACTIVE_NOT_ASSIGN_VEHICLE_DRIVERS: '/fleet/get-active-not-assign-vehicles-drivers',
+    GET_ALL_ACTIVE_NOT_ASSIGN_VEHICLE_DRIVERS_SUBCONTRACTOR: '/fleet/get-active-not-assign-vehicles-drivers-subcontractor/:id',
+
+
+
+
+
+
+
     GET_ALL_VEHICLES_WITH_DRIVER_DETAILS: '/fleet/get-all-vehicles-with-driver-details',
     GET_DRIVERS_WITH_VEHICLE_DETAILS: '/fleet/get-driver-with-vehicle-details',
     ASSIGN_VEHICLE: '/fleet/assign-vehicle/:id',
     ASSIGN_DRIVER: '/fleet/assign-driver/:id',
-    GET_ALL_ACTIVE_NOT_ASSIGN_VEHICLE_DRIVERS: '/fleet/get-active-not-assign-vehicles-drivers',
+
     GET_VEHICLE_WITH_JOB: '/fleet/get-vehicle-with-job',
 
   }

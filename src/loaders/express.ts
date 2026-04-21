@@ -14,6 +14,8 @@ import tipRouter from '../modules/tip-company/routes';
 import contractRouter from '../modules/contract/routes';
 import fleetRouter from '../modules/fleet/routes';
 import JobRouter from '../modules/jobs/routes';
+import messageRouter from '../modules/chat/routes';
+import dashboardRouter from '../modules/dashboard/routes';
 import cookieParser from "cookie-parser";
 
 export default ({ app }: { app: express.Application }) => {
@@ -46,7 +48,7 @@ export default ({ app }: { app: express.Application }) => {
    * @TODO Explain why they are here
    */
   app.get('/status', (req: Request, res: Response) => {
-    res.status(200).send(`${config.SOFTWARE_NAME} version 3 is running`);
+    res.status(200).send(`${config.SOFTWARE_NAME} version 6 is running`);
   });
 
   app.head('/status', (req: Request, res: Response) => {
@@ -74,11 +76,14 @@ export default ({ app }: { app: express.Application }) => {
   //   credentials: true,
   // }))
 
-
+  const allowedOrigins = [
+    process.env.FRONT_END_DOMAIN,
+  ];
+  console.info("Allowed origins ", allowedOrigins);
 
   app.use(
     cors({
-      origin: "https://stage.frontend.nja.i2n.io",
+      origin: allowedOrigins,
       credentials: true,
     })
   );
@@ -94,6 +99,8 @@ export default ({ app }: { app: express.Application }) => {
   app.use(config.api.prefix, contractRouter);
   app.use(config.api.prefix, fleetRouter);
   app.use(config.api.prefix, JobRouter);
+  app.use(config.api.prefix, messageRouter);
+  app.use(config.api.prefix, dashboardRouter);
 
   app.all('*', async (req, res) => {
     throw new NotFoundError(null);
