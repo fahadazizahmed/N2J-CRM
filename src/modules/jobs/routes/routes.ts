@@ -11,4 +11,8 @@ export default {
     GET_JOBS: '/job/get-jobs',
     GET_PRE_MATERIALS: '/job/get-pre-materials',
   },
+  Client: {
+    GET_MY_JOBS: '/job/my-jobs',
+  },
 };
+
